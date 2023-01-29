@@ -1,9 +1,11 @@
 use std::marker::{PhantomData};
 use glam::{Vec2, vec2};
-use macroquad::color::LIGHTGRAY;
+use macroquad::color::{BEIGE, DARKBROWN, LIGHTGRAY, SKYBLUE};
 use macroquad::input::{is_key_pressed, KeyCode};
+use macroquad::models::draw_plane;
 use macroquad::rand;
-use macroquad::window::{clear_background, Conf, next_frame};
+use macroquad::shapes::{draw_line, draw_rectangle};
+use macroquad::window::{clear_background, Conf, next_frame, screen_width};
 
 
 #[derive(Copy, Clone)]
@@ -104,7 +106,7 @@ impl<'branch> Plant<'branch> {
         Self {
             root: Branch {
                 start: vec2(x_coord, 0.),
-                end: vec2(x_coord, 1.0),
+                end: vec2(x_coord, 10.0),
                 direction: Angle::Middle,
                 left: None,
                 right: None,
@@ -120,6 +122,8 @@ impl<'branch> Plant<'branch> {
     }
 }
 
+const SOIL_LEVEL: f32 = 50.0;
+
 fn window_conf() -> Conf {
     Conf {
         window_title: "Root Tactics".to_owned(),
@@ -130,13 +134,54 @@ fn window_conf() -> Conf {
     }
 }
 
+struct State<'plant> {
+    plants: Vec<Plant<'plant>>
+}
+
+impl<'plants> State<'plants> {
+    pub fn new() -> Self {
+        Self {
+            plants: vec![Plant::new(120.0)],
+        }
+    }
+
+    pub fn draw(&self) {
+        clear_background(DARKBROWN);
+        draw_rectangle(0.0, 0.0, screen_width(), SOIL_LEVEL - 1.0, SKYBLUE);
+
+        for plant in self.plants.iter() {
+            self.draw_branch(&plant.root);
+        }
+    }
+
+    fn draw_branch(&self, branch: &Branch) {
+        draw_line(
+            branch.start.x,
+            branch.start.y + SOIL_LEVEL,
+            branch.end.x,
+            branch.end.y + SOIL_LEVEL,
+            5.0,
+            BEIGE);
+
+        if let Some(left) = &branch.left {
+            self.draw_branch(left);
+        }
+        if let Some(right) = &branch.right {
+            self.draw_branch(right);
+        }
+    }
+}
+
 #[macroquad::main(window_conf)]
 async fn main() {
+
+    let mut state = State::new();
+
     loop {
-        clear_background(LIGHTGRAY);
         if is_key_pressed(KeyCode::Q) {
             break;
         }
+        state.draw();
         next_frame().await
     }
 }

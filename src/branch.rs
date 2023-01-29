@@ -1,6 +1,25 @@
 use glam::{Vec2, vec2};
 use crate::{DumbSoil, Resource, Soil};
 
+// This will define the shape of the root.
+// Extension idea: Maybe make these dependent on depth or humidity?
+pub struct BranchingStrategy {
+
+    // Typical length:diameter ratio.
+    pub elongation_ratio: f32,
+
+    // probability to branch after branch's self.weight/children.weight gets more than this.
+    pub branching_coefficient: f32,
+
+    // Angle at which new branch tends to grow, unless it grows downwards.
+    // Extension idea: maybe we want entire distribution.
+    pub default_side_angle: f32,
+
+    // TODO: Dependency on soil - water/nitro/pH.
+
+    // Extension idea: Strength breaking a rock?
+}
+
 pub enum Angle {
     Left, Right, Middle,
 }
@@ -10,7 +29,7 @@ pub struct Branch {
     pub end: Vec2,
     direction: Angle,
     pub branch_weight: f32,
-    children_weight: f32,
+    subtree_weight: f32,
     pub left: Option<Box<Branch>>,
     pub right: Option<Box<Branch>>,
 }
@@ -29,7 +48,7 @@ impl Branch {
             end: vec2(x_coord, length),
             direction: Angle::Middle,
             branch_weight: 1.0,
-            children_weight: 0.0,
+            subtree_weight: 0.0,
             left: None,
             right: None,
         }
@@ -66,7 +85,26 @@ impl Branch {
         // return end;
     }
 
-    pub fn grow(&mut self, soil: &DumbSoil, need: Resource) {
+    /// Returns the subtree weight (and saves it in the node)
+    fn update_weights(&mut self) -> f32 {
+        let mut total_weight = self.branch_weight;
+        if let Some(left) = self.left.as_mut() {
+            total_weight += left.update_weights();
+        }
+        if let Some(right) = self.right.as_mut() {
+            total_weight += right.update_weights();
+        }
+        self.subtree_weight = total_weight;
+        total_weight
+    }
+
+    pub fn grow(
+        &mut self,
+        soil: &DumbSoil,
+        need: Resource,
+        // how much mass this branch or its children can gain.
+        have_cellulose: f32
+    ) {
         // TODO: select growth point by the best amount of the resource.
 
         let grow_branch = self.find_best_point(soil, need);

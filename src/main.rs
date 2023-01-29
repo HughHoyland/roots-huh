@@ -23,6 +23,8 @@ pub trait Soil {
     fn consume_resource(&mut self, pos: Vec2, what: Resource, power: f32) -> f32;
 
     fn get_ph(&self, pos: Vec2) -> f32;
+    // 0 to 10 by Mahs' scale.
+    fn get_hardness(&self, pos: Vec2) -> f32;
 
     fn emit_acid(&mut self, pos: Vec2) -> f32;
     fn emit_base(&mut self, pos: Vec2) -> f32;
@@ -35,6 +37,8 @@ impl Soil for DumbSoil {
     fn get_resource(&self, pos: Vec2, what: Resource) -> f32 { 0.01 * pos.y }
     fn consume_resource(&mut self, pos: Vec2, what: Resource, power: f32) -> f32 { 0.0 }
     fn get_ph(&self, pos: Vec2) -> f32 { 5.5 }
+    fn get_hardness(&self, pos: Vec2) -> f32 { 1.0 }
+
     fn emit_acid(&mut self, pos: Vec2) -> f32 { 0.0 }
     fn emit_base(&mut self, pos: Vec2) -> f32 { 0.0 }
 }
@@ -58,7 +62,7 @@ impl Plant {
     pub fn grow(&mut self, soil: &DumbSoil) {
         let need: Resource = Resource::Nitro;
         let soil = DumbSoil{};
-        self.root.grow(&soil, need)
+        self.root.grow(&soil, need, 100.0)
     }
 }
 

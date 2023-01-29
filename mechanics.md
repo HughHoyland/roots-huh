@@ -22,6 +22,9 @@ Sunlight depends on climate and amount of neighbors.
 * The thickness of a current branch must not be more than parent branch minus all the children.
     - Extension idea: replace it with conductivity limitation.
 
+# Measurement units
+milligrams, cm, mg/cm^3.
+
 
 # Future tech:
 

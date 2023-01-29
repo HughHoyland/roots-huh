@@ -1,4 +1,5 @@
 mod branch;
+mod numeric;
 
 use std::marker::{PhantomData};
 use glam::{Vec2, vec2};
@@ -19,6 +20,7 @@ pub enum Resource {
 }
 
 pub trait Soil {
+    /// Resource, g/cm3
     fn get_resource(&self, pos: Vec2, what: Resource) -> f32;
     fn consume_resource(&mut self, pos: Vec2, what: Resource, power: f32) -> f32;
 

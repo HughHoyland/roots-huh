@@ -1,15 +1,19 @@
+use std::f32::consts::PI;
 use glam::{Vec2, vec2};
 use crate::{DumbSoil, Resource, Soil};
+use crate::numeric::Cap;
 
 // This will define the shape of the root.
 // Extension idea: Maybe make these dependent on depth or humidity?
 pub struct BranchingStrategy {
 
     // Typical length:diameter ratio.
+    // For simplicity sake, let's decide that first segment is always 2 times
+    // as thick as last one.
     pub elongation_ratio: f32,
 
-    // probability to branch after branch's self.weight/children.weight gets more than this.
-    pub branching_coefficient: f32,
+    // Branches weight:my length ratio.
+    pub branching_ratio: f32,
 
     // Angle at which new branch tends to grow, unless it grows downwards.
     // Extension idea: maybe we want entire distribution.
@@ -17,95 +21,161 @@ pub struct BranchingStrategy {
 
     // TODO: Dependency on soil - water/nitro/pH.
 
-    // Extension idea: Strength breaking a rock?
+    // Extension idea: Strength breaking a hard soil(rock)?
+}
+
+/// All recursive.
+pub trait Branch {
+    fn get_length(&self) -> f32;
+    fn get_surface(&self) -> f32;
+    fn get_weight(&self) -> f32;
+    // fn get_conductivity(&self) -> f32;
+
+    fn grow(&mut self, nutri: f32, soil: &DumbSoil);
+    fn get_suck_potential(&self, what: Resource) -> f32;
 }
 
 pub enum Angle {
     Left, Right, Middle,
 }
 
-pub struct Branch {
-    pub start: Vec2,
-    pub end: Vec2,
-    direction: Angle,
-    pub branch_weight: f32,
+/// Distance between points in multiline.
+const POINT_DISTANCE: f32 = 1.0;
+
+
+struct Segment {
+    // Duplicates the data. Not optimal, but convenient.
+    start: Vec2,
+    end: Vec2,
+    weight: f32,
+    branch: Option<Box<MLBranch>>,
+}
+
+/// ML stands for "multiline", a sequence of line segments.
+pub struct MLBranch {
+    /// N+1 point for segments.
+    pub points: Vec<Vec2>,
+    /// N segment weights. In the model, we use terms "weight" and "volume" interchangeably.
+    pub weights: Vec<f32>,
+
+    /// Index in the parent's segments, where `self` branched off. No sense for a root MLBranch.
+    pub parent_segment_index: usize,
+
+    /// Vec of the same size as self.weights.
+    pub branches: Vec<Option<Box<MLBranch>>>,
+
+    weight: f32,
     subtree_weight: f32,
-    pub left: Option<Box<Branch>>,
-    pub right: Option<Box<Branch>>,
+
+    /// Best of `self` subtree's resource concentration.
+    /// Maintain this invariant!
+    pub best_nitro: f32,
+    pub best_water: f32,
 }
 
-pub struct ResourceOnBranch<'res> {
-    level: f32,
-    point: Vec2,
-    branch: &'res mut Branch,
+impl Branch for MLBranch {
+    fn get_length(&self) -> f32 { self.weights.len() as f32 }
+
+    fn get_surface(&self) -> f32 { self.weight / self.get_length() as f32 }
+
+    fn get_weight(&self) -> f32 { self.weight }
+
+    fn grow(&mut self, nutri: f32, soil: &DumbSoil) {
+        todo!()
+    }
+
+    fn get_suck_potential(&self, what: Resource) -> f32 {
+        100.0
+    }
 }
 
-impl Branch {
+struct GrowLonger {
+    direction: Vec2
+}
 
-    pub fn new_vertical(x_coord: f32, length: f32) -> Self {
-        Branch {
-            start: vec2(x_coord, 0.),
-            end: vec2(x_coord, length),
-            direction: Angle::Middle,
-            branch_weight: 1.0,
-            subtree_weight: 0.0,
-            left: None,
-            right: None,
+struct GrowNewBranch {
+    pub direction: Vec2,
+    pub parent_segment_index: usize,
+}
+
+struct GrowChild {
+    pub index: usize,
+}
+
+enum GrowthDecision {
+    Longer(GrowLonger),
+    Thicker,
+    NewBranch(GrowNewBranch),
+    Parent,
+    Child(GrowChild)
+}
+
+impl MLBranch {
+
+    pub fn new(x: f32, weight: f32) -> Self {
+        Self {
+            points: vec![vec2(x, 0.0), vec2(x, 1.0)],
+            weights: vec![weight],
+            parent_segment_index: 0,
+            branches: vec![None],
+            weight,
+            subtree_weight: weight,
+            best_nitro: 0.0,
+            best_water: 0.0
         }
     }
 
-    /// returns a tuple: `( resource level, point, and which branch point belongs to)`.
-    /// Maybe make it a struct?..
-    fn find_best_point(&mut self, soil: &DumbSoil, need: Resource) -> Option<ResourceOnBranch> {
+    /// Distribute the new mass between elongation, branching and thickness.
+    /// returns: distribution of (decision, weight), where sum of weights equals to 1.0
+    fn growth_decision(&self, soil: &DumbSoil, strategy: &BranchingStrategy) -> Vec<(GrowthDecision, f32)> {
 
-        // let start = ResourceOnBranch {
-        //     level: soil.get_resource(self.start, need),
-        //     point: self.start,
-        //     branch: self,
-        // };
-        // Some(start)
+        let mut result = vec![];
+        // Taking ML as a cylinder, so far.
+        let radius = (self.weight / (self.get_length() * PI)).sqrt();
+        let elongation_ratio = self.get_length() / (2.0 * radius);
 
-        let end = ResourceOnBranch {
-            level: soil.get_resource(self.end, need),
-            point: self.end,
-            branch: self,
-        };
-        Some(end)
-        //
-        // let middle: Vec2 = (self.start + self.end) * 0.5;
-        // let middle = ResourceOnBranch {
-        //     level: soil.get_resource(middle, need),
-        //     point: self.start,
-        //     branch: self,
-        // };
-        //
-        // // if let Some(left) = self.left.as_ref() {
-        // //
-        // // }
-        // return end;
-    }
+        // If the strategy is 100:1, and the current ratio is 80:1, we want 20% of probability to elongate.
+        // If the current ratio is 50, we want 50%.
+        // TODO: Only apply if there is enough thickness.
+        let elongation_probability = (1.0 - elongation_ratio / strategy.elongation_ratio)
+            .cap(0.0, 1.0);
 
-    /// Returns the subtree weight (and saves it in the node)
-    fn update_weights(&mut self) -> f32 {
-        let mut total_weight = self.branch_weight;
-        if let Some(left) = self.left.as_mut() {
-            total_weight += left.update_weights();
-        }
-        if let Some(right) = self.right.as_mut() {
-            total_weight += right.update_weights();
-        }
-        self.subtree_weight = total_weight;
-        total_weight
+        /// Waait, it needs to depend on the resources branches provide, in the first place!
+
+        let branch_ratio = (self.subtree_weight - self.weight) / self.get_length();
+        let branching_probability = (1.0 - branch_ratio / strategy.branching_ratio)
+            .cap(0.0, 1.0);
+
+        // Extension idea: weight by the current need of the whole plant.
+        let segment_resources: Vec<f32> = self.points
+            // maybe I'd better have self.segments() that returns iterator...
+            .skip(1)
+            .iter()
+            .map(|p| soil.get_resource(p, Resource::Nitro) + soil.get_resource(p, Resource::Water))
+            .collect();
+        let total_resources = segment_resources.iter().sum();
+
+        let segment_distribution: Vec<f32> = segment_resources
+            .iter()
+            .map(|res| res / total_resources)
+            .collect();
+
+        let best_segment =
+
+        result
     }
 
     pub fn grow(
         &mut self,
-        soil: &DumbSoil,
-        need: Resource,
         // how much mass this branch or its children can gain.
-        have_cellulose: f32
+        add_weight: f32,
+        soil: &DumbSoil,
+        strategy: &BranchingStrategy,
     ) {
         // TODO: select growth point by the best amount of the resource.
+
+
+        let time_to_branch = strategy.branching_coefficient
 
         let grow_branch = self.find_best_point(soil, need);
         match grow_branch {
@@ -117,6 +187,8 @@ impl Branch {
                 }
             }
         }
+
+        self.update_bests();
     }
 }
 

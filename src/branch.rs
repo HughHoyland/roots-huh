@@ -39,19 +39,19 @@ impl Branch {
     /// Maybe make it a struct?..
     fn find_best_point(&mut self, soil: &DumbSoil, need: Resource) -> Option<ResourceOnBranch> {
 
-        let start = ResourceOnBranch {
-            level: soil.get_resource(self.start, need),
-            point: self.start,
-            branch: self,
-        };
-
-        Some(start)
-
-        // let end = ResourceOnBranch {
-        //     level: soil.get_resource(self.end, need),
-        //     point: self.end,
+        // let start = ResourceOnBranch {
+        //     level: soil.get_resource(self.start, need),
+        //     point: self.start,
         //     branch: self,
         // };
+        // Some(start)
+
+        let end = ResourceOnBranch {
+            level: soil.get_resource(self.end, need),
+            point: self.end,
+            branch: self,
+        };
+        Some(end)
         //
         // let middle: Vec2 = (self.start + self.end) * 0.5;
         // let middle = ResourceOnBranch {
@@ -73,8 +73,9 @@ impl Branch {
         match grow_branch {
             None => {},
             Some(ResourceOnBranch{ level, point, branch }) => {
-                if (point - branch.end).length() < f32::EPSILON {
-                    branch.end = (branch.end - branch.start) * 1.01
+                let lll = (point - branch.end).length();
+                if lll < f32::EPSILON {
+                    branch.end = branch.start + (branch.end - branch.start) * 1.01
                 }
             }
         }

@@ -5,6 +5,7 @@ use glam::{Vec2, vec2};
 use macroquad::color::{BEIGE, DARKBROWN, LIGHTGRAY, SKYBLUE};
 use macroquad::input::{is_key_pressed, KeyCode};
 use macroquad::models::draw_plane;
+use macroquad::prelude::is_key_down;
 use macroquad::rand;
 use macroquad::shapes::{draw_line, draw_rectangle};
 use macroquad::window::{clear_background, Conf, next_frame, screen_width};
@@ -123,8 +124,10 @@ async fn main() {
             break;
         }
 
-        for plant in state.plants.iter_mut() {
-            plant.grow(&state.soil);
+        if is_key_down(KeyCode::G) {
+            for plant in state.plants.iter_mut() {
+                plant.grow(&state.soil);
+            }
         }
 
         state.draw();

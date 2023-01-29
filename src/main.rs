@@ -1,3 +1,5 @@
+mod branch;
+
 use std::marker::{PhantomData};
 use glam::{Vec2, vec2};
 use macroquad::color::{BEIGE, DARKBROWN, LIGHTGRAY, SKYBLUE};
@@ -6,6 +8,7 @@ use macroquad::models::draw_plane;
 use macroquad::rand;
 use macroquad::shapes::{draw_line, draw_rectangle};
 use macroquad::window::{clear_background, Conf, next_frame, screen_width};
+use crate::branch::{Angle, Branch};
 
 
 #[derive(Copy, Clone)]
@@ -24,6 +27,7 @@ pub trait Soil {
     fn emit_base(&mut self, pos: Vec2) -> f32;
 }
 
+#[derive(Clone)]
 pub struct DumbSoil {}
 
 impl Soil for DumbSoil {
@@ -34,91 +38,26 @@ impl Soil for DumbSoil {
     fn emit_base(&mut self, pos: Vec2) -> f32 { 0.0 }
 }
 
-enum Angle {
-    Left, Right, Middle,
-}
-
-struct Branch<'branch> {
-    start: Vec2,
-    end: Vec2,
-    direction: Angle,
-    left: Option<Box<Branch<'branch>>>,
-    right: Option<Box<Branch<'branch>>>,
-    phantom: PhantomData<&'branch u32>,
-}
 
 fn rand100() -> i32 {
     (rand::rand() as i32) / 100
 }
 
-struct ResourceOnBranch<'branch> {
-    level: f32,
-    point: Vec2,
-    branch: &'branch mut Branch<'branch>,
+struct Plant {
+    root: Branch,
 }
 
-impl<'branch> Branch<'branch> {
-
-    /// returns a tuple: `( resource level, point, and which branch point belongs to)`.
-    /// Maybe make it a struct?..
-    fn find_best_point(&'branch mut self, soil: &DumbSoil, need: Resource) -> ResourceOnBranch {
-
-        let start = ResourceOnBranch {
-            level: soil.get_resource(self.start, need),
-            point: self.start,
-            branch: self,
-        };
-        start
-
-        // let end = ResourceOnBranch {
-        //     level: soil.get_resource(self.end, need),
-        //     point: self.end,
-        //     branch: self,
-        // };
-        //
-        // let middle: Vec2 = (self.start + self.end) * 0.5;
-        // let middle = ResourceOnBranch {
-        //     level: soil.get_resource(middle, need),
-        //     point: self.start,
-        //     branch: self,
-        // };
-        //
-        // // if let Some(left) = self.left.as_ref() {
-        // //
-        // // }
-        // return end;
-    }
-
-    pub fn grow(&'branch mut self, soil: &DumbSoil, need: Resource) {
-        // TODO: select growth point by the best amount of the resource.
-
-        let grow_branch = self.find_best_point(soil, need);
-    }
-}
-
-struct Plant<'plant> {
-    root: Branch<'plant>,
-    phantom: PhantomData<&'plant u32>,
-}
-
-impl<'branch> Plant<'branch> {
+impl Plant {
     pub fn new(x_coord: f32) -> Self {
         Self {
-            root: Branch {
-                start: vec2(x_coord, 0.),
-                end: vec2(x_coord, 10.0),
-                direction: Angle::Middle,
-                left: None,
-                right: None,
-                phantom: Default::default(),
-            },
-            phantom: Default::default(),
+            root: Branch::new_vertical(x_coord, 10.0)
         }
     }
 
-    pub fn grow(&'branch mut self, soil: &DumbSoil) {
+    pub fn grow(&mut self, soil: &DumbSoil) {
         let need: Resource = Resource::Nitro;
-        self.root.grow(soil, need)
+        let soil = DumbSoil{};
+        self.root.grow(&soil, need)
     }
 }
 
@@ -134,13 +73,15 @@ fn window_conf() -> Conf {
     }
 }
 
-struct State<'plant> {
-    plants: Vec<Plant<'plant>>
+struct State {
+    soil: DumbSoil,
+    pub plants: Vec<Plant>
 }
 
-impl<'plants> State<'plants> {
+impl State {
     pub fn new() -> Self {
         Self {
+            soil: DumbSoil {},
             plants: vec![Plant::new(120.0)],
         }
     }
@@ -181,7 +122,12 @@ async fn main() {
         if is_key_pressed(KeyCode::Q) {
             break;
         }
+
+        for plant in state.plants.iter_mut() {
+            plant.grow(&state.soil);
+        }
+
         state.draw();
-        next_frame().await
+        next_frame().await;
     }
 }

@@ -18,6 +18,8 @@ pub struct BranchingStrategy {
     // Branches weight:my weight ratio.
     pub branching_ratio: f32,
 
+    pub mass_before_children: f32,
+
     // Angle at which new branch tends to grow, unless it grows downwards.
     // Extension idea: maybe we want entire distribution.
     pub default_side_angle: f32,
@@ -174,7 +176,7 @@ impl MLBranch {
         // If the strategy is 100:1, and the current ratio is 80:1, we want 20% of probability to elongate.
         // If the current ratio is 50, we want 50%.
         // TODO: Only apply if there is enough thickness.
-        let _elongation_probability = (1.0 - elongation_ratio / strategy.elongation_ratio)
+        let elongation_probability = (1.0 - elongation_ratio / strategy.elongation_ratio)
             .cap(0.0, 1.0);
 
         let branch_ratio = (self.subtree_weight - self.weight) / self.weight;
@@ -211,10 +213,16 @@ impl MLBranch {
         // If the end has a good enough resource - grow longer.
         // 0.8 is very arbitrary. Could be part of the strategy too.
         let elongate_is_good_enough =
-            (best_branch_resource > f32::EPSILON) && (end_resource / best_branch_resource > 0.8)
-            && (best_segment_resource > f32::EPSILON) && (end_resource / best_segment_resource > 0.8);
+            ((best_branch_resource > f32::EPSILON)
+                && (end_resource / best_branch_resource * elongation_probability > 0.8))
+                || ((best_segment_resource > f32::EPSILON)
+                && (end_resource / best_segment_resource * elongation_probability > 0.8));
 
         if elongate_is_good_enough {
+            println!("Elongate: ratio: own: {} expected: {}, resource {}/{}, probability: {}, weight: {}",
+                elongation_ratio, strategy.elongation_ratio,
+                end_resource, best_segment_resource, elongation_probability, self.weight);
+
             let next_point = last_segment.end + (last_segment.end - last_segment.start);
             return vec![(
                 GrowthDecision::Longer(GrowLonger { direction: next_point }),
@@ -226,18 +234,27 @@ impl MLBranch {
         // * more construction material increases the likelihood
         // * very rich soil increases the probability
         // * existing branching ratio affects the probability.
-        if branching_probability > 0.8 && self.segments[best_segment_idx].branch.is_none() {
+        if self.weight >= strategy.mass_before_children
+            && branching_probability > 0.9
+            && self.segments[best_segment_idx].branch.is_none()
+        {
+            let best_segment = &self.segments[best_segment_idx];
             // TODO: Rewrite. Use strategy. Make it a strategy method?
-            let new_branch_angle = if last_segment.angle() > -PI / 2.0 + f32::EPSILON {
-                -PI / 2.0
-            } else if last_segment.angle() > -PI * (3.0/4.0) {
-                -PI / 4.0
+            // TODO: Make left and right branches interchange.
+            // TODO: Maybe grow a new branch per each N grams of current branch mass, at regular intervals?
+            let new_branch_angle = if best_segment.angle() > PI / 2.0 + f32::EPSILON {
+                PI / 2.0
+            } else if best_segment.angle() > PI / 4.0 {
+                PI / 4.0
             } else {
-                -PI * (3.0/4.0)
+                PI * (3.0/4.0)
             };
 
-            let next_point = last_segment.end
+            let next_point = best_segment.end
                 + vec2(SEGMENT_LENGTH * new_branch_angle.cos(), SEGMENT_LENGTH * new_branch_angle.sin());
+
+            println!("New branch. Branching ratio: my: {}, strat: {}. Branch at {}",
+                branch_ratio, strategy.branching_ratio, next_point);
 
             return vec![(
                 GrowthDecision::NewBranch(GrowNewBranch {
@@ -289,7 +306,9 @@ impl MLBranch {
                     let last_segment = self.segments.last()
                         .expect("Empty branch, really?");
                     self.segments.push(Segment::new(last_segment.end, direction));
+                    self.weight += new_material;
                 }
+
                 GrowthDecision::NewBranch(GrowNewBranch{ direction, parent_segment_index }) => {
                     let cur_segment = &mut self.segments[parent_segment_index];
                     if cur_segment.branch.is_some() {
@@ -302,11 +321,13 @@ impl MLBranch {
                             parent_segment_index,
                             new_material)));
                 }
+
                 GrowthDecision::Child(GrowChild{ index }) =>
                     self.segments[index].branch
                         .as_mut()
                         .expect("GrowthDecision::Child - bad index")
                         .grow(new_material, soil, strategy),
+
                 GrowthDecision::Myself =>
                     self.weight += new_material,
             }

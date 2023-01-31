@@ -57,6 +57,7 @@ impl Plant {
             strategy: BranchingStrategy {
                 elongation_ratio: 80.0,
                 branching_ratio: 5.0,
+                mass_before_children: 50.0,
                 default_side_angle: -PI / 2.0,
             }
         };
@@ -117,7 +118,7 @@ impl State {
                 segment.start.y + SOIL_LEVEL,
                 segment.end.x,
                 segment.end.y + SOIL_LEVEL,
-                5.0,
+                1.0,
                 BEIGE);
 
             if let Some(left) = &segment.branch {

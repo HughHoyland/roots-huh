@@ -1,16 +1,15 @@
 mod branch;
 mod numeric;
+mod stats;
 
-use std::marker::{PhantomData};
-use glam::{Vec2, vec2};
-use macroquad::color::{BEIGE, DARKBROWN, LIGHTGRAY, SKYBLUE};
+use std::f32::consts::PI;
+use glam::{Vec2};
+use macroquad::color::{BEIGE, DARKBROWN, SKYBLUE};
 use macroquad::input::{is_key_pressed, KeyCode};
-use macroquad::models::draw_plane;
 use macroquad::prelude::is_key_down;
-use macroquad::rand;
 use macroquad::shapes::{draw_line, draw_rectangle};
 use macroquad::window::{clear_background, Conf, next_frame, screen_width};
-use crate::branch::{Angle, Branch};
+use crate::branch::{BranchingStrategy, MLBranch};
 
 
 #[derive(Copy, Clone)]
@@ -36,35 +35,42 @@ pub trait Soil {
 pub struct DumbSoil {}
 
 impl Soil for DumbSoil {
-    fn get_resource(&self, pos: Vec2, what: Resource) -> f32 { 0.01 * pos.y }
-    fn consume_resource(&mut self, pos: Vec2, what: Resource, power: f32) -> f32 { 0.0 }
-    fn get_ph(&self, pos: Vec2) -> f32 { 5.5 }
-    fn get_hardness(&self, pos: Vec2) -> f32 { 1.0 }
+    fn get_resource(&self, pos: Vec2, _what: Resource) -> f32 { 0.01 * pos.y }
+    fn consume_resource(&mut self, _pos: Vec2, _what: Resource, _power: f32) -> f32 { 0.01 }
+    fn get_ph(&self, _pos: Vec2) -> f32 { 5.5 }
+    fn get_hardness(&self, _pos: Vec2) -> f32 { 1.0 }
 
-    fn emit_acid(&mut self, pos: Vec2) -> f32 { 0.0 }
-    fn emit_base(&mut self, pos: Vec2) -> f32 { 0.0 }
+    fn emit_acid(&mut self, _pos: Vec2) -> f32 { 0.0 }
+    fn emit_base(&mut self, _pos: Vec2) -> f32 { 0.0 }
 }
 
-
-fn rand100() -> i32 {
-    (rand::rand() as i32) / 100
-}
 
 struct Plant {
-    root: Branch,
+    root: MLBranch,
+    strategy: BranchingStrategy,
 }
 
 impl Plant {
     pub fn new(x_coord: f32) -> Self {
-        Self {
-            root: Branch::new_vertical(x_coord, 10.0)
-        }
+        let plant = Self {
+            root: MLBranch::new(x_coord, 10.0),
+            strategy: BranchingStrategy {
+                elongation_ratio: 80.0,
+                branching_ratio: 5.0,
+                default_side_angle: -PI / 2.0,
+            }
+        };
+        plant
     }
 
-    pub fn grow(&mut self, soil: &DumbSoil) {
-        let need: Resource = Resource::Nitro;
-        let soil = DumbSoil{};
-        self.root.grow(&soil, need, 100.0)
+    pub fn grow(&mut self, soil: &mut DumbSoil) {
+        let (nitro, water) = self.root.suck(soil);
+
+        // Extension: use sunlight too.
+        // Maybe need to
+        let new_matter = f32::min(nitro, water);
+
+        self.root.grow(new_matter, soil, &self.strategy);
     }
 }
 
@@ -102,20 +108,21 @@ impl State {
         }
     }
 
-    fn draw_branch(&self, branch: &Branch) {
-        draw_line(
-            branch.start.x,
-            branch.start.y + SOIL_LEVEL,
-            branch.end.x,
-            branch.end.y + SOIL_LEVEL,
-            5.0,
-            BEIGE);
+    fn draw_branch(&self, branch: &MLBranch) {
 
-        if let Some(left) = &branch.left {
-            self.draw_branch(left);
-        }
-        if let Some(right) = &branch.right {
-            self.draw_branch(right);
+        for segment in branch.segments.iter() {
+            // TODO: Conic shape, thickness.
+            draw_line(
+                segment.start.x,
+                segment.start.y + SOIL_LEVEL,
+                segment.end.x,
+                segment.end.y + SOIL_LEVEL,
+                5.0,
+                BEIGE);
+
+            if let Some(left) = &segment.branch {
+                self.draw_branch(left);
+            }
         }
     }
 }
@@ -132,7 +139,7 @@ async fn main() {
 
         if is_key_down(KeyCode::G) {
             for plant in state.plants.iter_mut() {
-                plant.grow(&state.soil);
+                plant.grow(&mut state.soil);
             }
         }
 

@@ -1,6 +1,7 @@
-use macroquad::rand;
+// use macroquad::rand;
+use num_traits;
 
-pub trait Cap where Self: Copy + Ord {
+pub trait Cap where Self: num_traits::Float {
     fn cap(self, min: Self, max: Self) -> Self;
 }
 
@@ -14,6 +15,6 @@ impl Cap for f32 {
     }
 }
 
-pub fn rand100() -> i32 {
-    (rand::rand() as i32) / 100
-}
+// pub fn rand100() -> i32 {
+//     (rand::rand() as i32) / 100
+// }

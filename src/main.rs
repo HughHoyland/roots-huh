@@ -3,12 +3,12 @@ mod numeric;
 mod stats;
 
 use std::f32::consts::PI;
-use glam::{Vec2};
-use macroquad::color::{BEIGE, DARKBROWN, SKYBLUE};
+use glam::{Vec2, vec2};
+use macroquad::color::{BEIGE, BLUE, DARKBROWN, GRAY, SKYBLUE};
 use macroquad::input::{is_key_pressed, KeyCode};
 use macroquad::prelude::is_key_down;
-use macroquad::shapes::{draw_line, draw_rectangle};
-use macroquad::window::{clear_background, Conf, next_frame, screen_width};
+use macroquad::shapes::{draw_line, draw_poly_lines, draw_rectangle};
+use macroquad::window::{clear_background, Conf, next_frame, screen_height, screen_width};
 use crate::branch::{BranchingStrategy, MLBranch};
 
 
@@ -35,7 +35,7 @@ pub trait Soil {
 pub struct DumbSoil {}
 
 impl Soil for DumbSoil {
-    fn get_resource(&self, pos: Vec2, _what: Resource) -> f32 { 0.01 * pos.y }
+    fn get_resource(&self, pos: Vec2, _what: Resource) -> f32 { 0.05 * (pos.y + 3.0).ln() }
     fn consume_resource(&mut self, _pos: Vec2, _what: Resource, _power: f32) -> f32 { 0.01 }
     fn get_ph(&self, _pos: Vec2) -> f32 { 5.5 }
     fn get_hardness(&self, _pos: Vec2) -> f32 { 1.0 }
@@ -100,12 +100,42 @@ impl State {
         }
     }
 
+    fn resource_draw_size(quantity: f32) -> f32 {
+        if quantity < 0.0 {
+            0.0
+        } else if quantity < 2.9 {
+            quantity * 2.0
+        } else {
+            quantity.ln() + 3.0
+        }
+    }
+
     pub fn draw(&self) {
         clear_background(DARKBROWN);
         draw_rectangle(0.0, 0.0, screen_width(), SOIL_LEVEL - 1.0, SKYBLUE);
 
         for plant in self.plants.iter() {
             self.draw_branch(&plant.root);
+        }
+
+        let max_y = (screen_height() - SOIL_LEVEL) as i32;
+
+        for x in (0..screen_width() as i32).step_by(20) {
+            for y in (0..max_y).step_by(10) {
+                let pos = vec2(x as f32, y as f32);
+                let water = self.soil.get_resource(pos, Resource::Water);
+                let nitro = self.soil.get_resource(pos, Resource::Nitro);
+
+                if water > 0.0 {
+                    let size = Self::resource_draw_size(water);
+                    draw_poly_lines(pos.x, pos.y + SOIL_LEVEL, 3, size, 0.0, 1.0, BLUE);
+                }
+                if nitro > 0.0 {
+                    let size = Self::resource_draw_size(nitro);
+                    draw_poly_lines(pos.x + 5.0, pos.y + 2.0 + SOIL_LEVEL, 4, size, 0.0, 1.0, GRAY);
+                }
+            }
+
         }
     }
 

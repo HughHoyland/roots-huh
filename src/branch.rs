@@ -244,7 +244,7 @@ impl MLBranch {
             // TODO: Maybe grow a new branch per each N grams of current branch mass, at regular intervals?
             let new_branch_angle = if best_segment.angle() > PI / 2.0 + f32::EPSILON {
                 PI / 2.0
-            } else if best_segment.angle() > PI / 4.0 {
+            } else if best_segment.angle() > PI / 4.0 + f32::EPSILON {
                 PI / 4.0
             } else {
                 PI * (3.0/4.0)

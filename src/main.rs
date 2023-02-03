@@ -1,47 +1,24 @@
 mod branch;
 mod numeric;
 mod stats;
+mod soil;
 
 use std::f32::consts::PI;
-use glam::{Vec2, vec2};
+use glam::{vec2};
 use macroquad::color::{BEIGE, BLUE, DARKBROWN, GRAY, SKYBLUE};
 use macroquad::input::{is_key_pressed, KeyCode};
 use macroquad::prelude::is_key_down;
 use macroquad::shapes::{draw_line, draw_poly_lines, draw_rectangle};
 use macroquad::window::{clear_background, Conf, next_frame, screen_height, screen_width};
 use crate::branch::{BranchingStrategy, MLBranch};
+use crate::numeric::rand;
+use crate::soil::{MatrixSoil, Soil};
 
 
 #[derive(Copy, Clone)]
 pub enum Resource {
     Water,
     Nitro
-}
-
-pub trait Soil {
-    /// Resource, g/cm3
-    fn get_resource(&self, pos: Vec2, what: Resource) -> f32;
-    fn consume_resource(&mut self, pos: Vec2, what: Resource, power: f32) -> f32;
-
-    fn get_ph(&self, pos: Vec2) -> f32;
-    // 0 to 10 by Mahs' scale.
-    fn get_hardness(&self, pos: Vec2) -> f32;
-
-    fn emit_acid(&mut self, pos: Vec2) -> f32;
-    fn emit_base(&mut self, pos: Vec2) -> f32;
-}
-
-#[derive(Clone)]
-pub struct DumbSoil {}
-
-impl Soil for DumbSoil {
-    fn get_resource(&self, pos: Vec2, _what: Resource) -> f32 { 0.05 * (pos.y + 3.0).ln() }
-    fn consume_resource(&mut self, _pos: Vec2, _what: Resource, _power: f32) -> f32 { 0.01 }
-    fn get_ph(&self, _pos: Vec2) -> f32 { 5.5 }
-    fn get_hardness(&self, _pos: Vec2) -> f32 { 1.0 }
-
-    fn emit_acid(&mut self, _pos: Vec2) -> f32 { 0.0 }
-    fn emit_base(&mut self, _pos: Vec2) -> f32 { 0.0 }
 }
 
 
@@ -64,7 +41,7 @@ impl Plant {
         plant
     }
 
-    pub fn grow(&mut self, soil: &mut DumbSoil) {
+    pub fn grow(&mut self, soil: &mut MatrixSoil) {
         let (nitro, water) = self.root.suck(soil);
 
         // Extension: use sunlight too.
@@ -88,14 +65,25 @@ fn window_conf() -> Conf {
 }
 
 struct State {
-    soil: DumbSoil,
+    soil: MatrixSoil,
     pub plants: Vec<Plant>
 }
 
 impl State {
     pub fn new() -> Self {
+        let width = screen_width() as usize;
+        let height = (screen_height() - SOIL_LEVEL) as usize;
+        let mut soil = MatrixSoil::new(width, height);
+        for _ in 0..100 {
+            let x = rand(width);
+            let pos = vec2(rand(width) as f32, rand(height) as f32);
+            let r = rand(70) as f32 + 10.0;
+            let weight = rand(10) as f32 + 2.0;
+            soil.add_nitro(pos, r, weight);
+        }
+
         Self {
-            soil: DumbSoil {},
+            soil,
             plants: vec![Plant::new(120.0)],
         }
     }

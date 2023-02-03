@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 use glam::{Vec2, vec2};
-use crate::{DumbSoil, Resource, Soil};
+use crate::{MatrixSoil, Resource, Soil};
 use crate::numeric::Cap;
 use crate::stats::{MaxIndex, StatVec};
 
@@ -37,7 +37,7 @@ pub trait Branch {
     fn get_weight(&self) -> f32;
     // fn get_conductivity(&self) -> f32;
 
-    fn grow(&mut self, nutri: f32, soil: &DumbSoil);
+    fn grow(&mut self, nutri: f32, soil: &MatrixSoil);
     fn get_suck_potential(&self, what: Resource) -> f32;
 }
 
@@ -61,7 +61,7 @@ impl Segment {
         Self { start, end, branch: None }
     }
 
-    // pub fn get_segment_resource(&self, soil: &DumbSoil, what: Resource) -> f32 {
+    // pub fn get_segment_resource(&self, soil: &MatrixSoil, what: Resource) -> f32 {
     //     soil.get_resource(self.end, what) + match self.branch.as_ref() {
     //         None => 0.0,
     //         Some(branch) => match what {
@@ -107,7 +107,7 @@ impl Branch for MLBranch {
 
     fn get_weight(&self) -> f32 { self.weight }
 
-    fn grow(&mut self, _nutri: f32, _soil: &DumbSoil) {
+    fn grow(&mut self, _nutri: f32, _soil: &MatrixSoil) {
         todo!()
     }
 
@@ -166,7 +166,7 @@ impl MLBranch {
     /// returns: distribution of (decision, weight), where sum of weights equals to 1.0
     fn growth_decision(
         &self,
-        soil: &DumbSoil,
+        soil: &MatrixSoil,
         _new_material: f32,
         strategy: &BranchingStrategy
     ) -> Vec<(GrowthDecision, f32)>
@@ -295,7 +295,7 @@ impl MLBranch {
         &mut self,
         // how much mass this branch or its children can gain.
         new_material: f32,
-        soil: &DumbSoil,
+        soil: &MatrixSoil,
         strategy: &BranchingStrategy,
     ) {
         let decision = self.growth_decision(soil, new_material, strategy);
@@ -339,7 +339,7 @@ impl MLBranch {
     }
 
     /// * returns (nitro, water)
-    pub fn suck(&mut self, soil: &mut DumbSoil) -> (f32, f32) {
+    pub fn suck(&mut self, soil: &mut MatrixSoil) -> (f32, f32) {
 
         // FIXME: The consumption must happen AT THE SAME TIME, not sequentially,
         // so that branches will compete for resources.

@@ -110,18 +110,14 @@ impl Branch for MLBranch {
     }
 }
 
-struct GrowLonger {
-    direction: Vec2
-}
+struct GrowLonger(Vec2);
 
 struct GrowNewBranch {
     pub direction: Vec2,
     pub parent_segment_index: usize,
 }
 
-struct GrowChild {
-    pub index: usize,
-}
+struct GrowChild(usize);
 
 enum GrowthDecision {
     Longer(GrowLonger),
@@ -257,7 +253,7 @@ impl MLBranch {
             .enumerate()
             .filter(|(i, seg)| seg.branch.is_some())
             .map(|(i, seg)| (
-                GrowthDecision::Child( GrowChild { index: i } ),
+                GrowthDecision::Child( GrowChild(index)),
                 children_share * branch_resources[i] / total_branch_resources
             ))
             .collect();
@@ -270,7 +266,7 @@ impl MLBranch {
         let my_decision = if self.get_length() / self.get_radius() < strategy.conic_ratio {
             let last_segment = self.segments.last().unwrap();
             let next_point = last_segment.end + (last_segment.end - last_segment.start);
-            GrowthDecision::Longer(GrowLonger { direction: next_point })
+            GrowthDecision::Longer(GrowLonger(next_point))
         } else {
             GrowthDecision::Myself
         };
@@ -291,14 +287,17 @@ impl MLBranch {
 
         for (application, _weight) in decision {
             match application {
-                GrowthDecision::Longer(GrowLonger{ direction }) => {
+                GrowthDecision::Longer(GrowLonger(direction)) if direction.y >= 0.0 => {
                     let last_segment = self.segments.last()
                         .expect("Empty branch, really?");
                     self.segments.push(Segment::new(last_segment.end, direction));
                     self.weight += new_material;
                 }
 
-                GrowthDecision::NewBranch(GrowNewBranch{ direction, parent_segment_index }) => {
+                GrowthDecision::NewBranch(
+                    GrowNewBranch{ direction, parent_segment_index }
+                ) if direction.y >= 0.0 =>
+                    {
                     let cur_segment = &mut self.segments[parent_segment_index];
                     if cur_segment.branch.is_some() {
                         panic!("GrowthDecision::NewBranch - already have a branch");
@@ -311,14 +310,13 @@ impl MLBranch {
                             new_material)));
                 }
 
-                GrowthDecision::Child(GrowChild{ index }) =>
+                GrowthDecision::Child(GrowChild(index)) =>
                     self.segments[index].branch
                         .as_mut()
                         .expect("GrowthDecision::Child - bad index")
                         .grow(new_material, soil, strategy),
 
-                GrowthDecision::Myself =>
-                    self.weight += new_material,
+                _ => self.weight += new_material,
             }
 
             self.subtree_weight += new_material;

@@ -39,6 +39,13 @@ impl StatVec {
     }
 
     pub fn sum(&self) -> f32 { self.sum }
+
+    pub fn weight(&self, index: usize) -> f32 {
+        if self.sum <= f32::EPSILON {
+            return 1.0 / self.vec.len() as f32;
+        }
+        self.vec[index] / self.sum
+    }
 }
 
 impl MaxIndex<f32> for StatVec {

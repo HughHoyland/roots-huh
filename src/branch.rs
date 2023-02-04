@@ -1,27 +1,25 @@
 use std::f32::consts::PI;
 use glam::{Vec2, vec2};
+use num_traits::FloatConst;
 use crate::{MatrixSoil, Resource, Soil};
-use crate::numeric::Cap;
-use crate::stats::{MaxIndex, StatVec};
 
 // This will define the shape of the root.
 // Extension idea: Maybe make these dependent on depth or humidity?
 pub struct BranchingStrategy {
 
-    // Typical length:diameter ratio.
-    // For simplicity sake, let's decide that first segment is always 2 times
-    // as thick as last one.
-    // TODO: Think again if it's a good parameter. I think roots can be of any
-    // length, given plant has the materials?
-    pub elongation_ratio: f32,
+    /// Length:diameter ratio.
+    /// For simplicity sake, let's decide that first segment is always 2 times
+    /// as thick as last one.
+    pub conic_ratio: f32,
 
-    // Branches weight:my weight ratio.
-    pub branching_ratio: f32,
+    /// all children:my weight ratio.
+    pub children_weight_rate: f32,
 
-    pub mass_before_children: f32,
+    /// one child:my weight ratio.
+    pub child_weight_rate: f32,
 
-    // Angle at which new branch tends to grow, unless it grows downwards.
-    // Extension idea: maybe we want entire distribution.
+    /// Angle at which new branch tends to grow, unless it grows downwards.
+    /// Extension idea: maybe we want entire distribution.
     pub default_side_angle: f32,
 
     // TODO: Dependency on soil - water/nitro/pH.
@@ -61,20 +59,14 @@ impl Segment {
         Self { start, end, branch: None }
     }
 
-    // pub fn get_segment_resource(&self, soil: &MatrixSoil, what: Resource) -> f32 {
-    //     soil.get_resource(self.end, what) + match self.branch.as_ref() {
-    //         None => 0.0,
-    //         Some(branch) => match what {
-    //             Resource::Water => branch.best_water,
-    //             Resource::Nitro => branch.best_nitro,
-    //         }
-    //     }
-    // }
-
     /// ranging -pi..pi
     pub fn angle(&self) -> f32 {
         let delta = self.end - self.start;
         delta.y.atan2(delta.x)
+    }
+
+    pub fn vec(&self) -> Vec2 {
+        self.end - self.start
     }
 }
 
@@ -85,7 +77,9 @@ pub struct MLBranch {
     /// Index in the parent's segments, where `self` branched off. No sense for a root MLBranch.
     pub parent_segment_index: usize,
 
+    /// My own weight
     weight: f32,
+    /// My entire subtree weight, including me
     subtree_weight: f32,
 
     /// Best of `self` subtree's resource concentration.
@@ -162,6 +156,62 @@ impl MLBranch {
         }
     }
 
+    fn branch_count(&self) -> usize {
+        self.segments.iter()
+            .filter_map(|s| s.branch.as_ref().map(|_| true))
+            .count()
+    }
+
+    fn get_child_angle(&self, index: usize) -> f32 {
+        let my_direction = self.segments[index].vec();
+        let child_direction = self.segments[index].branch
+            .as_ref()
+            .expect("Branch expected")
+            .segments[0]
+            .vec();
+        my_direction.angle_between(child_direction)
+    }
+
+    fn last_branch_index(&self) -> Option<usize> {
+        self.segments.iter().enumerate()
+            .filter_map(|(i, s)| s.branch.as_ref().map(|_| i))
+            .last()
+    }
+
+    fn grow_new_branch(&self) -> Option<GrowthDecision> {
+        // * On one hand, branch interval depends on my size.
+        // * On the other hand, the old branches will sit too tight then?..
+        // Let's just stick a branch at 1/2 of the remaining length and see!
+
+        let last_branch_index = self.last_branch_index();
+
+        let new_branch_segment = match last_branch_index {
+            None => self.segments.len() / 2,
+            Some(index) if index >= self.segments.len()-2 => return None,
+            Some(index) => index + (self.segments.len() - index) / 2,
+        };
+
+        if new_branch_segment >= self.segments.len() || self.segments[new_branch_segment].branch.is_some() {
+            panic!("new_branch_segment={}: something went wrong", new_branch_segment);
+        }
+
+        let new_branch_angle = match last_branch_index {
+            None => self.segments[new_branch_segment].angle() + f32::PI() / 4.0,
+            Some(index) => -self.get_child_angle(index),
+        };
+
+        let next_point = self.segments[new_branch_segment].end
+            + vec2(SEGMENT_LENGTH * new_branch_angle.cos(), SEGMENT_LENGTH * new_branch_angle.sin());
+
+        // println!("New branch. Branching ratio: my: {}, start: {}. Branch at {}",
+        //          branch_ratio, strategy.branching_ratio, next_point);
+
+        Some( GrowthDecision::NewBranch( GrowNewBranch {
+            direction: next_point,
+            parent_segment_index: new_branch_segment
+        }))
+    }
+
     /// Distribute the new mass between elongation, branching and thickness.
     /// returns: distribution of (decision, weight), where sum of weights equals to 1.0
     fn growth_decision(
@@ -171,124 +221,63 @@ impl MLBranch {
         strategy: &BranchingStrategy
     ) -> Vec<(GrowthDecision, f32)>
     {
-        let elongation_ratio = self.get_length() / (2.0 * self.get_radius());
+        let min_child_mass: f32 = 1.0;
+        let min_mass_for_children = min_child_mass / strategy.child_weight_rate;
 
-        // If the strategy is 100:1, and the current ratio is 80:1, we want 20% of probability to elongate.
-        // If the current ratio is 50, we want 50%.
-        // TODO: Only apply if there is enough thickness.
-        let elongation_probability = (1.0 - elongation_ratio / strategy.elongation_ratio)
-            .cap(0.0, 1.0);
+        let last_branch_index = self.last_branch_index();
 
-        let branch_ratio = (self.subtree_weight - self.weight) / self.weight;
-        let branching_probability = (1.0 - branch_ratio / strategy.branching_ratio)
-            .cap(0.0, 1.0);
+        if self.weight > min_mass_for_children {
+            // TODO: Move this magic number into the strategy?
+            if last_branch_index.is_none()
+                || (last_branch_index.unwrap() as f32 / self.segments.len() as f32) < 0.3
+            {
+                if let Some(decision) = self.grow_new_branch() {
+                    return vec![ (decision, 1.0) ];
+                }
+            }
+        }
 
-        // Extension idea: weight by the current need of the whole plant.
-        let segment_resources: Vec<f32> = self.segments
-            .iter()
-            .map(|s| soil.get_resource(s.end, Resource::Nitro)
-                + soil.get_resource(s.end, Resource::Water))
-            .collect();
-        let segment_resources = StatVec::new(segment_resources);
-
-        // let segment_weights: Vec<f32> = segment_resources.vec
-        //     .iter()
-        //     .map(|res| res / segment_resources.sum())
-        //     .collect();
 
         let branch_resources: Vec<f32> = self.segments.iter()
             .map(|s|
                 s.branch.as_ref().map(|br| br.best_nitro + br.best_water).unwrap_or_default())
             .collect();
-        let branch_resources = StatVec::new(branch_resources);
+        let total_branch_resources: f32 = branch_resources.iter().sum();
 
-        let (best_segment_idx, best_segment_resource) = segment_resources.max_index();
-        let (_best_branch_idx, best_branch_resource) = branch_resources.max_index();
-        let last_segment = self.segments.last().expect("Empty branch!");
+        // c = children's share
+        // m = my share
+        // c/m = children_weight_rate
+        // Solution.
+        // c + m = 1
+        // c = c/(c + m) = ?
+        // c/(c + m) = 1 / (children_weight_rate + 1)
+        let children_share = 1.0 / (strategy.children_weight_rate + 1.0);
 
-        // Eventually, I will need a weighted sum function for them, parametrized by the current needs.
-        let end_resource = soil.get_resource(last_segment.end, Resource::Nitro)
-            + soil.get_resource(last_segment.end, Resource::Water);
+        let child_decisions: Vec<_> = self.segments.iter()
+            .enumerate()
+            .filter(|(i, seg)| seg.branch.is_some())
+            .map(|(i, seg)| (
+                GrowthDecision::Child( GrowChild { index: i } ),
+                children_share * branch_resources[i] / total_branch_resources
+            ))
+            .collect();
 
-        // If the end has a good enough resource - grow longer.
-        // 0.8 is very arbitrary. Could be part of the strategy too.
-        let elongate_is_good_enough =
-            ((best_branch_resource > f32::EPSILON)
-                && (end_resource / best_branch_resource * elongation_probability > 0.8))
-                || ((best_segment_resource > f32::EPSILON)
-                && (end_resource / best_segment_resource * elongation_probability > 0.8));
 
-        if elongate_is_good_enough {
-            println!("Elongate: ratio: own: {} expected: {}, resource {}/{}, probability: {}, weight: {}",
-                elongation_ratio, strategy.elongation_ratio,
-                end_resource, best_segment_resource, elongation_probability, self.weight);
+        let mut result = child_decisions;
 
+        let my_share = if result.is_empty() { 1.0 } else { 1.0 - children_share };
+
+        let my_decision = if self.get_length() / self.get_radius() < strategy.conic_ratio {
+            let last_segment = self.segments.last().unwrap();
             let next_point = last_segment.end + (last_segment.end - last_segment.start);
-            return vec![(
-                GrowthDecision::Longer(GrowLonger { direction: next_point }),
-                1.0
-            )];
-        }
+            GrowthDecision::Longer(GrowLonger { direction: next_point })
+        } else {
+            GrowthDecision::Myself
+        };
 
-        // Grow a new branch.
-        // * more construction material increases the likelihood
-        // * very rich soil increases the probability
-        // * existing branching ratio affects the probability.
-        if self.weight >= strategy.mass_before_children
-            && branching_probability > 0.9
-            && self.segments[best_segment_idx].branch.is_none()
-        {
-            let best_segment = &self.segments[best_segment_idx];
-            // TODO: Rewrite. Use strategy. Make it a strategy method?
-            // TODO: Make left and right branches interchange.
-            // TODO: Maybe grow a new branch per each N grams of current branch mass, at regular intervals?
-            let new_branch_angle = if best_segment.angle() > PI / 2.0 + f32::EPSILON {
-                PI / 2.0
-            } else if best_segment.angle() > PI / 4.0 + f32::EPSILON {
-                PI / 4.0
-            } else {
-                PI * (3.0/4.0)
-            };
+        result.push( (my_decision, my_share) );
 
-            let next_point = best_segment.end
-                + vec2(SEGMENT_LENGTH * new_branch_angle.cos(), SEGMENT_LENGTH * new_branch_angle.sin());
-
-            println!("New branch. Branching ratio: my: {}, strat: {}. Branch at {}",
-                branch_ratio, strategy.branching_ratio, next_point);
-
-            return vec![(
-                GrowthDecision::NewBranch(GrowNewBranch {
-                    direction: next_point,
-                    parent_segment_index: best_segment_idx
-                }),
-                1.0
-            )];
-        }
-
-        // Distribute to children branches proportionally to their contribution
-        if best_branch_resource > f32::EPSILON {
-            let branch_weights: Vec<_> = branch_resources.vec
-                .iter()
-                .enumerate()
-                .filter_map(|(index, val)| if *val > f32::EPSILON {
-                        Some((
-                            GrowthDecision::Child(GrowChild{ index }),
-                            (*val / branch_resources.sum())
-                        ))
-                    } else { None }
-                )
-                .collect();
-            return branch_weights;
-        }
-
-        // If the sum of my chilren's (transport capacity) is greater than mine,
-        // allocate some (all?) resources to grow myself
-
-        let next_point = last_segment.end + (last_segment.end - last_segment.start);
-        vec![(
-            GrowthDecision::Longer(GrowLonger { direction: next_point }),
-            1.0
-        )]
+        result
     }
 
     pub fn grow(
@@ -375,5 +364,12 @@ impl MLBranch {
 
         (total_nitro, total_water)
     }
+}
+
+#[cfg(test)]
+mod test {
+
+
+
 }
 

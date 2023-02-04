@@ -32,10 +32,10 @@ impl Plant {
         let plant = Self {
             root: MLBranch::new(x_coord, 10.0),
             strategy: BranchingStrategy {
-                elongation_ratio: 80.0,
-                branching_ratio: 5.0,
-                mass_before_children: 50.0,
-                default_side_angle: -PI / 2.0,
+                conic_ratio: 80.0,
+                children_weight_rate: 0.2,
+                child_weight_rate: 0.03,
+                default_side_angle: -PI / 4.0,
             }
         };
         plant
@@ -45,8 +45,8 @@ impl Plant {
         let (nitro, water) = self.root.suck(soil);
 
         // Extension: use sunlight too.
-        // Maybe need to
-        let new_matter = f32::min(nitro, water);
+        // hack hack hack  + 0.2
+        let new_matter = f32::min(nitro + 0.2, water + 0.2);
 
         self.root.grow(new_matter, soil, &self.strategy);
     }
@@ -75,9 +75,10 @@ impl State {
         let height = (screen_height() - SOIL_LEVEL) as usize;
         let mut soil = MatrixSoil::new(width, height);
         for _ in 0..100 {
-            let x = rand(width);
-            let pos = vec2(rand(width) as f32, rand(height) as f32);
             let r = rand(70) as f32 + 10.0;
+            let x = rand(width - 2 * r as usize) + r as usize;
+            let y = rand(height - 2 * r as usize) + r as usize;
+            let pos = vec2(x as f32, y as f32);
             let weight = rand(10) as f32 + 2.0;
             soil.add_nitro(pos, r, weight);
         }

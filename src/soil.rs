@@ -108,8 +108,9 @@ impl Soil for MatrixSoil {
     fn consume_resource(&mut self, pos: Vec2, what: Resource, _power: f32) -> f32 {
         let consumed = self.get_resource(pos, what);
         // let consumed = cmp::min(consumed, power);
-        let consumed = self.add_at(pos.x as usize, pos.y as usize, what, -consumed);
-        return -consumed;
+        // let consumed = self.add_at(pos.x as usize, pos.y as usize, what, -consumed);
+        // return -consumed;
+        return consumed
     }
 
     fn get_ph(&self, _pos: Vec2) -> f32 {

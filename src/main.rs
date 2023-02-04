@@ -5,12 +5,12 @@ mod soil;
 
 use std::f32::consts::PI;
 use glam::{vec2};
-use macroquad::color::{BEIGE, BLUE, DARKBROWN, GRAY, SKYBLUE};
+use macroquad::color::{BEIGE, BLUE, BROWN, Color, DARKBROWN, GRAY, GREEN, SKYBLUE};
 use macroquad::input::{is_key_pressed, KeyCode};
 use macroquad::prelude::is_key_down;
 use macroquad::shapes::{draw_line, draw_poly_lines, draw_rectangle};
 use macroquad::window::{clear_background, Conf, next_frame, screen_height, screen_width};
-use crate::branch::{BranchingStrategy, MLBranch};
+use crate::branch::{Branch, BranchingStrategy, GrowthDecision, MLBranch};
 use crate::numeric::rand;
 use crate::soil::{MatrixSoil, Soil};
 
@@ -99,12 +99,47 @@ impl State {
         }
     }
 
+    fn draw_decision(x: f32, decisions: Vec<(GrowthDecision, f32)>) {
+        let mut long = 0.0;
+        let mut branches = 0.0;
+        let mut thick = 0.0;
+        for (d, weight) in decisions.iter() {
+            match d {
+                GrowthDecision::Longer(_) => long += weight,
+                GrowthDecision::Child(_) | GrowthDecision::NewBranch(_) => branches += weight,
+                GrowthDecision::Myself => thick += weight,
+            }
+        }
+
+        let rect_width = 15.0;
+        let rect_height = 30.0;
+
+        fn draw_bar(x: f32, height: f32, color: Color) {
+            let offset = 10.0;
+            let rect_width = 15.0;
+
+            draw_rectangle(
+                x,
+                SOIL_LEVEL - offset - height,
+                rect_width,
+                height + 1.0,
+                color);
+        }
+
+        draw_bar(x - rect_width * 1.6, long * rect_height, BROWN);
+        draw_bar(x - rect_width * 0.5, branches * rect_height, GREEN);
+        draw_bar(x + rect_width * 0.6, thick * rect_height, DARKBROWN);
+    }
+
     pub fn draw(&self) {
         clear_background(DARKBROWN);
         draw_rectangle(0.0, 0.0, screen_width(), SOIL_LEVEL - 1.0, SKYBLUE);
 
         for plant in self.plants.iter() {
             self.draw_branch(&plant.root);
+            let decision = plant.root.growth_decision(&self.soil, 1.0, &plant.strategy);
+            Self::draw_decision(plant.root.segments[0].start.x, decision);
+            println!("Root thickness: {}", plant.root.get_radius());
         }
 
         let max_y = (screen_height() - SOIL_LEVEL) as i32;

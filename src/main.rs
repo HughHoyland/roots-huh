@@ -2,10 +2,11 @@ mod branch;
 mod numeric;
 mod stats;
 mod soil;
+mod organ;
 
 use std::f32::consts::PI;
 use glam::{vec2};
-use macroquad::color::{BEIGE, BLUE, BROWN, Color, DARKBROWN, GRAY, GREEN, SKYBLUE};
+use macroquad::color::{BEIGE, BLACK, BLUE, BROWN, Color, DARKBROWN, DARKGREEN, GRAY, GREEN, SKYBLUE};
 use macroquad::input::{is_key_pressed, KeyCode};
 use macroquad::prelude::is_key_down;
 use macroquad::shapes::{draw_line, draw_poly_lines, draw_rectangle};
@@ -33,7 +34,7 @@ impl Plant {
             root: MLBranch::new(x_coord, 10.0),
             strategy: BranchingStrategy {
                 conic_ratio: 80.0,
-                children_weight_rate: 0.3,
+                children_weight_rate: 0.8,
                 child_weight_rate: 0.03,
                 default_side_angle: -PI / 4.0,
             }
@@ -46,7 +47,7 @@ impl Plant {
 
         // Extension: use sunlight too.
         // hack hack hack  + 0.2
-        let new_matter = f32::min(nitro + 0.2, water + 0.2);
+        let new_matter = f32::min(nitro + 0.2, water + 0.2) * 10.0;
 
         self.root.grow(new_matter, soil, &self.strategy);
     }
@@ -65,8 +66,12 @@ fn window_conf() -> Conf {
 }
 
 struct State {
-    soil: MatrixSoil,
-    pub plants: Vec<Plant>
+    pub soil: MatrixSoil,
+    pub plants: Vec<Plant>,
+    // Player's plant is always #0, this is the selected one (you can select others too)
+    pub selected_plant: usize,
+    /// "Path" to a selected branch - indexes of branches.
+    pub selected_branch: Vec<usize>,
 }
 
 impl State {
@@ -86,6 +91,8 @@ impl State {
         Self {
             soil,
             plants: vec![Plant::new(120.0)],
+            selected_plant: 0,
+            selected_branch: vec![]
         }
     }
 
@@ -127,8 +134,12 @@ impl State {
         }
 
         draw_bar(x - rect_width * 1.6, long * rect_height, BROWN);
-        draw_bar(x - rect_width * 0.5, branches * rect_height, GREEN);
+        draw_bar(x - rect_width * 0.5, branches * rect_height, DARKGREEN);
         draw_bar(x + rect_width * 0.6, thick * rect_height, DARKBROWN);
+        // draw_bar(x + rect_width * 1.6, rect_height, BLACK);
+        if long + branches + thick < 0.99 {
+            println!("Not enough weight!");
+        }
     }
 
     pub fn draw(&self) {
@@ -139,7 +150,6 @@ impl State {
             self.draw_branch(&plant.root);
             let decision = plant.root.growth_decision(&self.soil, 1.0, &plant.strategy);
             Self::draw_decision(plant.root.segments[0].start.x, decision);
-            println!("Root thickness: {}", plant.root.get_radius());
         }
 
         let max_y = (screen_height() - SOIL_LEVEL) as i32;

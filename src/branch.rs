@@ -113,16 +113,16 @@ impl Branch for MLBranch {
     }
 }
 
-struct GrowLonger(Vec2);
+pub struct GrowLonger(Vec2);
 
-struct GrowNewBranch {
+pub struct GrowNewBranch {
     pub direction: Vec2,
     pub parent_segment_index: usize,
 }
 
-struct GrowChild(usize);
+pub struct GrowChild(usize);
 
-enum GrowthDecision {
+pub enum GrowthDecision {
     Longer(GrowLonger),
     NewBranch(GrowNewBranch),
     Child(GrowChild),
@@ -221,9 +221,9 @@ impl MLBranch {
 
     /// Distribute the new mass between elongation, branching and thickness.
     /// returns: distribution of (decision, weight), where sum of weights equals to 1.0
-    fn growth_decision(
+    pub fn growth_decision(
         &self,
-        soil: &MatrixSoil,
+        _soil: &MatrixSoil,
         _new_material: f32,
         strategy: &BranchingStrategy
     ) -> Vec<(GrowthDecision, f32)>
@@ -260,6 +260,8 @@ impl MLBranch {
 
         if child_decisions.is_empty() {
 
+            // FIXME: Use water as a limiting factor instead.
+
             let branch_resources: Vec<f32> = self.segments.iter()
                 .map(|s|
                     s.branch.as_ref().map(|br| br.best_nitro + br.best_water).unwrap_or_default())
@@ -268,8 +270,8 @@ impl MLBranch {
 
             child_decisions = self.segments.iter()
                 .enumerate()
-                .filter(|(i, seg)| seg.branch.is_some())
-                .map(|(i, seg)| (
+                .filter(|(_i, seg)| seg.branch.is_some())
+                .map(|(i, _seg)| (
                     GrowthDecision::Child( GrowChild(i) ),
                     children_share * branch_resources[i] / total_branch_resources
                 ))
@@ -335,7 +337,7 @@ impl MLBranch {
                         .expect("GrowthDecision::Child - bad index")
                         .grow(new_material * weight, soil, strategy),
 
-                _ => self.weight += new_material,
+                _ => self.weight += new_material * weight,
             }
 
             self.subtree_weight += new_material;

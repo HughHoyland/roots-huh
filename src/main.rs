@@ -130,14 +130,15 @@ impl State {
 
     fn draw_branch(&self, branch: &MLBranch) {
 
-        for segment in branch.segments.iter() {
+        for (i, segment) in branch.segments.iter().enumerate() {
+            let thickness = 7.0 * (branch.get_length() - i as f32) / branch.get_length();
             // TODO: Conic shape, thickness.
             draw_line(
                 segment.start.x,
                 segment.start.y + SOIL_LEVEL,
                 segment.end.x,
                 segment.end.y + SOIL_LEVEL,
-                1.0,
+                1.0 + thickness,
                 BEIGE);
 
             if let Some(left) = &segment.branch {

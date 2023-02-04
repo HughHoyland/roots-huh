@@ -72,6 +72,9 @@ impl Segment {
 
 /// ML stands for "multiline", a sequence of line segments.
 pub struct MLBranch {
+    // A sequence of branch indexes, from the root of the root.
+    pub id: Vec<usize>,
+
     pub segments: Vec<Segment>,
 
     /// Index in the parent's segments, where `self` branched off. No sense for a root MLBranch.
@@ -130,6 +133,7 @@ impl MLBranch {
 
     pub fn new(x: f32, weight: f32) -> Self {
         Self {
+            id: vec![],
             segments: vec![
                 Segment::new(vec2(x, 0.0), vec2(x, SEGMENT_LENGTH))
             ],
@@ -141,8 +145,11 @@ impl MLBranch {
         }
     }
 
-    pub fn new_branch(start: Vec2, end: Vec2, parent_segment_index: usize, weight: f32) -> Self {
+    pub fn new_branch(start: Vec2, end: Vec2, parent_segment_index: usize, parent_id: Vec<usize>, weight: f32) -> Self {
+        let mut id = parent_id;
+        id.push(parent_segment_index);
         Self {
+            id,
             segments: vec![ Segment::new(start, end) ],
             parent_segment_index,
             weight,
@@ -152,11 +159,11 @@ impl MLBranch {
         }
     }
 
-    fn branch_count(&self) -> usize {
-        self.segments.iter()
-            .filter_map(|s| s.branch.as_ref().map(|_| true))
-            .count()
-    }
+    // fn branch_count(&self) -> usize {
+    //     self.segments.iter()
+    //         .filter_map(|s| s.branch.as_ref().map(|_| true))
+    //         .count()
+    // }
 
     fn get_child_angle(&self, index: usize) -> f32 {
         let my_direction = self.segments[index].vec();
@@ -315,6 +322,7 @@ impl MLBranch {
                             cur_segment.end,
                             direction,
                             parent_segment_index,
+                            self.id.clone(),
                             new_material)));
                 }
 

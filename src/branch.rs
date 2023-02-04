@@ -48,7 +48,7 @@ const SEGMENT_LENGTH: f32 = 1.0;
 
 
 pub struct Segment {
-    // `start` duplicates the data. Not optimal, but convenient.
+    // `start` duplicates the end of a previous one. Not optimal, but convenient.
     pub start: Vec2,
     pub end: Vec2,
     pub branch: Option<Box<MLBranch>>,
@@ -300,13 +300,13 @@ impl MLBranch {
     ) {
         let decision = self.growth_decision(soil, new_material, strategy);
 
-        for (application, _weight) in decision {
+        for (application, weight) in decision {
             match application {
                 GrowthDecision::Longer(GrowLonger(direction)) if direction.y >= 0.0 => {
                     let last_segment = self.segments.last()
                         .expect("Empty branch, really?");
                     self.segments.push(Segment::new(last_segment.end, direction));
-                    self.weight += new_material;
+                    self.weight += new_material * weight;
                 }
 
                 GrowthDecision::NewBranch(
@@ -323,14 +323,14 @@ impl MLBranch {
                             direction,
                             parent_segment_index,
                             self.id.clone(),
-                            new_material)));
+                            new_material * weight)));
                 }
 
                 GrowthDecision::Child(GrowChild(index)) =>
                     self.segments[index].branch
                         .as_mut()
                         .expect("GrowthDecision::Child - bad index")
-                        .grow(new_material, soil, strategy),
+                        .grow(new_material * weight, soil, strategy),
 
                 _ => self.weight += new_material,
             }

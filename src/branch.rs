@@ -183,7 +183,7 @@ impl MLBranch {
 
         let new_branch_segment = match last_branch_index {
             None => self.segments.len() / 2,
-            Some(index) if index >= self.segments.len()-2 => return None,
+            Some(index) if index + 2 >= self.segments.len() => return None,
             Some(index) => index + (self.segments.len() - index) / 2,
         };
 
@@ -191,8 +191,9 @@ impl MLBranch {
             panic!("new_branch_segment={}: something went wrong", new_branch_segment);
         }
 
+        let pseudo_rnd_sign = (new_branch_segment as i32 & 1) * 2 - 1;
         let new_branch_angle = match last_branch_index {
-            None => self.segments[new_branch_segment].angle() + f32::PI() / 4.0,
+            None => self.segments[new_branch_segment].angle() + (pseudo_rnd_sign as f32) * f32::PI() / 4.0,
             Some(index) => -self.get_child_angle(index),
         };
 
@@ -217,46 +218,53 @@ impl MLBranch {
         strategy: &BranchingStrategy
     ) -> Vec<(GrowthDecision, f32)>
     {
+        // c = children's share
+        // m = my share
+        // c/m = children_weight_rate
+        // Solution.
+        // m = 1 - c
+        // children_weight_rate = c / (1 - c)
+        // c = (1 - c) * children_weight_rate
+        // c = children_weight_rate - c*children_weight_rate
+        // c * (1 + children_weight_rate) = children_weight_rate
+        // c = children_weight_rate / (1 + children_weight_rate)
+        let children_share = strategy.children_weight_rate / (strategy.children_weight_rate + 1.0);
+
         let min_child_mass: f32 = 1.0;
         let min_mass_for_children = min_child_mass / strategy.child_weight_rate;
 
         let last_branch_index = self.last_branch_index();
 
+        let mut child_decisions: Vec<_> = vec![];
         if self.weight > min_mass_for_children {
             // TODO: Move this magic number into the strategy?
             if last_branch_index.is_none()
                 || (last_branch_index.unwrap() as f32 / self.segments.len() as f32) < 0.3
             {
                 if let Some(decision) = self.grow_new_branch() {
-                    return vec![ (decision, 1.0) ];
+                    child_decisions = vec![ (decision, 1.0) ];
                 }
             }
         }
 
 
-        let branch_resources: Vec<f32> = self.segments.iter()
-            .map(|s|
-                s.branch.as_ref().map(|br| br.best_nitro + br.best_water).unwrap_or_default())
-            .collect();
-        let total_branch_resources: f32 = branch_resources.iter().sum();
+        if child_decisions.is_empty() {
 
-        // c = children's share
-        // m = my share
-        // c/m = children_weight_rate
-        // Solution.
-        // c + m = 1
-        // c = c/(c + m) = ?
-        // c/(c + m) = 1 / (children_weight_rate + 1)
-        let children_share = 1.0 / (strategy.children_weight_rate + 1.0);
+            let branch_resources: Vec<f32> = self.segments.iter()
+                .map(|s|
+                    s.branch.as_ref().map(|br| br.best_nitro + br.best_water).unwrap_or_default())
+                .collect();
+            let total_branch_resources: f32 = branch_resources.iter().sum();
 
-        let child_decisions: Vec<_> = self.segments.iter()
-            .enumerate()
-            .filter(|(i, seg)| seg.branch.is_some())
-            .map(|(i, seg)| (
-                GrowthDecision::Child( GrowChild(index)),
-                children_share * branch_resources[i] / total_branch_resources
-            ))
-            .collect();
+            child_decisions = self.segments.iter()
+                .enumerate()
+                .filter(|(i, seg)| seg.branch.is_some())
+                .map(|(i, seg)| (
+                    GrowthDecision::Child( GrowChild(i) ),
+                    children_share * branch_resources[i] / total_branch_resources
+                ))
+                .collect();
+        }
 
 
         let mut result = child_decisions;

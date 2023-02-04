@@ -33,7 +33,7 @@ impl Plant {
             root: MLBranch::new(x_coord, 10.0),
             strategy: BranchingStrategy {
                 conic_ratio: 80.0,
-                children_weight_rate: 0.2,
+                children_weight_rate: 0.3,
                 child_weight_rate: 0.03,
                 default_side_angle: -PI / 4.0,
             }

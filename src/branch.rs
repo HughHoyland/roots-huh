@@ -200,9 +200,12 @@ impl MLBranch {
 
         let pseudo_rnd_sign = (new_branch_segment as i32 & 1) * 2 - 1;
         let new_branch_angle = match last_branch_index {
-            None => self.segments[new_branch_segment].angle() + (pseudo_rnd_sign as f32) * f32::PI() / 4.0,
+            None => (pseudo_rnd_sign as f32) * f32::PI() / 4.0,
             Some(index) => -self.get_child_angle(index),
-        };
+        }
+            + self.segments[new_branch_segment].angle();
+
+        // println!("new_branch_angle: {} from {}", new_branch_angle, self.segments[new_branch_segment].angle());
 
         let next_point = self.segments[new_branch_segment].end
             + vec2(SEGMENT_LENGTH * new_branch_angle.cos(), SEGMENT_LENGTH * new_branch_angle.sin());

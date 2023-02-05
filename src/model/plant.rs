@@ -1,11 +1,13 @@
 use num_traits::FloatConst;
-use crate::model::branch::MLBranch;
+use crate::model::branch::{BranchId, MLBranch};
 use crate::model::BranchingStrategy;
 use crate::model::soil::MatrixSoil;
 
 pub struct Plant {
     pub root: MLBranch,
     pub strategy: BranchingStrategy,
+    pub water_access: f32,
+    pub nitro_access: f32,
 }
 
 impl Plant {
@@ -17,18 +19,20 @@ impl Plant {
                 children_weight_rate: 0.8,
                 child_weight_rate: 0.03,
                 default_side_angle: -f32::PI() / 4.0,
-            }
+            },
+            water_access: 0.0,
+            nitro_access: 0.0
         };
         plant
     }
 
     pub fn grow(&mut self, soil: &mut MatrixSoil) {
-        let (nitro, water) = self.root.suck(soil);
+        (self.nitro_access, self.water_access) = self.root.suck(soil);
 
         // Extension: use sunlight too.
         // hack hack hack  + 0.2
-        let new_matter = f32::min(nitro + 0.2, water + 0.2) * 10.0;
+        let new_cellulose = f32::min(self.nitro_access + 0.2, self.water_access + 0.2) * 10.0;
 
-        self.root.grow(new_matter, soil, &self.strategy);
+        self.root.grow(new_cellulose, soil, &self.strategy);
     }
 }

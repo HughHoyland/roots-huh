@@ -2,10 +2,13 @@ mod numeric;
 mod stats;
 mod model;
 mod draw;
+mod ui;
 
-use glam::{vec2};
-use macroquad::input::{is_key_down, is_key_pressed, KeyCode};
-use macroquad::window::{Conf, next_frame, screen_height, screen_width};
+use glam::vec2;
+use macroquad::color::LIGHTGRAY;
+use macroquad::input::{is_key_down, is_key_pressed, is_mouse_button_down, KeyCode, MouseButton};
+// use macroquad::texture::{load_texture, Texture2D};
+use macroquad::window::{clear_background, Conf, next_frame, screen_height, screen_width};
 use crate::draw::{draw_scene, SOIL_LEVEL};
 use crate::numeric::{rand};
 use crate::model::branch::{Branch, BranchId, MLBranch};
@@ -27,9 +30,9 @@ struct State {
     pub soil: MatrixSoil,
     pub plants: Vec<Plant>,
     // Player's plant is always #0, this is the selected one (you can select others too)
-    pub selected_plant: usize,
+    pub selected: Option<BranchId>,
     /// "Path" to a selected branch - indexes of branches.
-    pub selected_branch: Vec<usize>,
+    pub hovered: Option<BranchId>,
 }
 
 impl State {
@@ -49,11 +52,10 @@ impl State {
         Self {
             soil,
             plants: vec![Plant::new(0, 120.0)],
-            selected_plant: 0,
-            selected_branch: vec![]
+            selected: None,
+            hovered: None
         }
     }
-
 }
 
 fn print_branch(branch: &MLBranch, offset: usize) {
@@ -72,14 +74,26 @@ fn print_plant(p0: &Plant) {
     print_branch(branch, 0);
 }
 
-struct DrawOutput {
-    pub selected_plant: usize,
-    pub selected_branch: BranchId,
-}
+// pub struct Textures {
+//     ui: Texture2D,
+//     icons: Texture2D,
+// }
+//
+// impl Textures {
+//     pub async fn load() -> Self {
+//         let texture: Texture2D = load_texture("assets/ferris.png").await.unwrap();
+//         Self {
+//             ui: texture,
+//             icons: texture,
+//         }
+//     }
+// }
 
 
 #[macroquad::main(window_conf)]
 async fn main() {
+
+    clear_background(LIGHTGRAY);
 
     let mut state = State::new();
 
@@ -98,7 +112,14 @@ async fn main() {
             print_plant(&state.plants[0]);
         }
 
-        draw_scene(&state.plants, &state.soil);
+        state.hovered = None;
+        draw_scene(&state.plants, &state.soil, &mut state.hovered, &state.selected);
+
+        if is_mouse_button_down(MouseButton::Left) && state.hovered.is_some() {
+            state.selected = state.hovered.clone();
+        }
+
+        // draw_ui();
 
         next_frame().await;
     }

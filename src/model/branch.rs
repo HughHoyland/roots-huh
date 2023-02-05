@@ -1,5 +1,6 @@
 use std::f32::consts::PI;
 use std::fmt::{Display, Formatter};
+use std::ops::Deref;
 use glam::{Vec2, vec2};
 use num_traits::FloatConst;
 
@@ -47,6 +48,7 @@ impl Segment {
     }
 }
 
+#[derive(Clone)]
 pub struct BranchId {
     pub plant: u32,
     pub branch_path: Vec<usize>
@@ -172,6 +174,18 @@ impl MLBranch {
         self.segments.iter()
             .filter_map(|s| s.branch.as_ref().map(|_| true))
             .count()
+    }
+
+    pub fn get_branch(&self, branch_path: &Vec<usize>) -> Option<&MLBranch> {
+        let mut branch = self;
+        for branch_index in branch_path {
+            match branch.segments[*branch_index].branch.as_ref() {
+                None => return None,
+                Some(branch_box) => branch = branch_box.deref(),
+            }
+        }
+
+        Some(branch)
     }
 
     fn get_child_angle(&self, index: usize) -> f32 {

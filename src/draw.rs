@@ -1,8 +1,10 @@
+use std::mem;
 use glam::{Vec2, vec2};
 use macroquad::color::{BEIGE, BLUE, BROWN, Color, DARKBROWN, DARKGREEN, GRAY, GREEN, SKYBLUE};
 use macroquad::input::mouse_position;
 use macroquad::prelude::{clear_background, draw_line, draw_poly_lines, draw_rectangle, screen_height, screen_width};
-use crate::model::branch::{Branch, GrowthDecision, MLBranch};
+use macroquad::shapes::draw_rectangle_lines;
+use crate::model::branch::{Branch, BranchId, GrowthDecision, MLBranch};
 use crate::model::plant::Plant;
 use crate::model::Resource;
 use crate::model::soil::{MatrixSoil, Soil};
@@ -11,7 +13,7 @@ use crate::numeric::distance_to_segment;
 pub const SOIL_LEVEL: f32 = 50.0;
 
 
-pub fn draw_scene(plants: &Vec<Plant>, soil: &MatrixSoil) {
+pub fn draw_scene(plants: &Vec<Plant>, soil: &MatrixSoil, hover: &mut Option<BranchId>, selected: &Option<BranchId>) {
 
     clear_background(DARKBROWN);
     draw_rectangle(0.0, 0.0, screen_width(), SOIL_LEVEL - 1.0, SKYBLUE);
@@ -19,12 +21,34 @@ pub fn draw_scene(plants: &Vec<Plant>, soil: &MatrixSoil) {
     let mouse_pos: Vec2 = mouse_position().into();
     let mouse_pos = vec2(mouse_pos.x, mouse_pos.y - SOIL_LEVEL);
 
-    let mut hover_drawn = false;
-
-    for plant in plants.iter() {
-        draw_branch(&plant.root, mouse_pos, &mut hover_drawn);
+    for (i, plant) in plants.iter().enumerate() {
+        draw_branch(&plant.root, mouse_pos, hover);
         let decision = plant.root.growth_decision(&soil, 1.0, &plant.strategy);
         draw_decision(plant.root.segments[0].start.x, decision);
+
+        if let Some(selected) = selected {
+            if i as u32 == selected.plant {
+                let selected_branch = plant.root.get_branch(&selected.branch_path);
+                if let Some(selected_branch) = selected_branch {
+                    let mut p1 = selected_branch.segments[0].start;
+                    let mut p2 = selected_branch.segments.last().unwrap().end;
+                    if p1.x > p2.x {
+                        mem::swap(&mut p1.x, &mut p2.x);
+                    }
+                    if p1.y > p2.y {
+                        mem::swap(&mut p1.y, &mut p2.y);
+                    }
+
+                    let selection_frame_offset = 4.0;
+                    draw_rectangle_lines(
+                        p1.x - selection_frame_offset,
+                        p1.y - selection_frame_offset + SOIL_LEVEL,
+                        p2.x - p1.x + 2.0 * selection_frame_offset,
+                        p2.y - p1.y + 2.0 * selection_frame_offset,
+                        2.0, GREEN);
+                }
+            }
+        }
     }
 
     let max_y = (screen_height() - SOIL_LEVEL) as i32;
@@ -48,10 +72,10 @@ pub fn draw_scene(plants: &Vec<Plant>, soil: &MatrixSoil) {
     }
 }
 
-fn draw_branch(branch: &MLBranch, mouse_pos: Vec2, hover_drawn: &mut bool) {
+fn draw_branch(branch: &MLBranch, mouse_pos: Vec2, hover: &mut Option<BranchId>) {
     let mut color = BEIGE;
 
-    if ! *hover_drawn {
+    if hover.is_none() {
         let d_mouse = distance_to_segment(
             mouse_pos,
             branch.segments[0].start,
@@ -59,13 +83,13 @@ fn draw_branch(branch: &MLBranch, mouse_pos: Vec2, hover_drawn: &mut bool) {
 
         if d_mouse < 5.0 {
             color = GREEN;
-            *hover_drawn = true;
+            *hover = Some(branch.id.clone())
         }
     }
 
     for (i, segment) in branch.segments.iter().enumerate() {
         if let Some(left) = &segment.branch {
-            draw_branch(left, mouse_pos, hover_drawn);
+            draw_branch(left, mouse_pos, hover);
         }
 
         let thickness = 7.0 * (branch.get_length() - i as f32) / branch.get_length();

@@ -43,12 +43,6 @@ The player can control:
 
 Make sure the ecosystem can support you, and competitors don't overwhelm you!
 
-## Resource spending.
-
-### Tech tree - Mutations.
-
-We have a good selection to choose from.
-
 TODO: Gather the ideas here.
 
 ### Tactical, real-time decisions.
@@ -63,14 +57,7 @@ Maybe have an army of symbiont ants/bugs/woodpeckers? Silly but funny.
 
 # Game design.
 
-TODO: What decisions does the player have, to get risk and reward?
-- decisions in tech tree.
-- what else?..
-
-Resource spent on growing roots.
-Risk: the invested resources.
-Reward: potential resources?
-
+https://docs.google.com/document/d/1g0gQu0fa-MpcCj9r9eTd0A7rVcA1vyD4J1DTjMrw8NE/edit#
 
 # Limitations
 * The thickness of a current branch must not be more than parent branch minus all the children.
@@ -78,16 +65,6 @@ Reward: potential resources?
 
 # Measurement units
 milligrams, cm, mg/cm^3, hour, mg/hour.
-
-
-# Future tech:
-
-* Parasitic roots. At level 3 we can go fully parasitic, and develop a vine!
-* Symbiotic insects. Feed them fruit, get them to remove parasites or soften the soil.
-* Symbiotic plants: you can increase soil pH until it kills you; they decrease it. You must
-  maintain them to survive.
-* ...
-
 
 
 # References

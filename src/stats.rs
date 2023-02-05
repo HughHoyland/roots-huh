@@ -23,40 +23,40 @@ impl MaxIndex<f32> for Vec<f32> {
             .expect("Unexpected empty vector")
     }
 }
-
-pub struct StatVec {
-    pub vec: Vec<f32>,
-    sum: f32,
-    max_index: usize,
-}
-
-impl StatVec {
-    pub fn new(vec: Vec<f32>) -> Self {
-        let sum: f32 = vec.iter().sum();
-        let (max_index, _max_val) = vec.max_index();
-
-        Self { vec, sum, max_index }
-    }
-
-    pub fn sum(&self) -> f32 { self.sum }
-
-    pub fn weight(&self, index: usize) -> f32 {
-        if self.sum <= f32::EPSILON {
-            return 1.0 / self.vec.len() as f32;
-        }
-        self.vec[index] / self.sum
-    }
-}
-
-impl MaxIndex<f32> for StatVec {
-    fn max_index(&self) -> (usize, f32) {
-        (self.max_index, self.vec[self.max_index])
-    }
-
-    fn max(&self) -> f32 {
-        self.vec[self.max_index]
-    }
-}
-
+//
+// pub struct StatVec {
+//     pub vec: Vec<f32>,
+//     sum: f32,
+//     max_index: usize,
+// }
+//
+// impl StatVec {
+//     pub fn new(vec: Vec<f32>) -> Self {
+//         let sum: f32 = vec.iter().sum();
+//         let (max_index, _max_val) = vec.max_index();
+//
+//         Self { vec, sum, max_index }
+//     }
+//
+//     pub fn sum(&self) -> f32 { self.sum }
+//
+//     pub fn weight(&self, index: usize) -> f32 {
+//         if self.sum <= f32::EPSILON {
+//             return 1.0 / self.vec.len() as f32;
+//         }
+//         self.vec[index] / self.sum
+//     }
+// }
+//
+// impl MaxIndex<f32> for StatVec {
+//     fn max_index(&self) -> (usize, f32) {
+//         (self.max_index, self.vec[self.max_index])
+//     }
+//
+//     fn max(&self) -> f32 {
+//         self.vec[self.max_index]
+//     }
+// }
+//
 
 

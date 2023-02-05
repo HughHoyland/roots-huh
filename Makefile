@@ -11,7 +11,7 @@ EXECUTABLE=root-tactics
 
 
 wasm:
-	wasm-bindgen target/$(WASM)/release/${EXECUTABLE}.wasm --out-dir wasm --no-modules --no-typescript
+	wasm-bindgen target/$(WASM)/release/${EXECUTABLE}.wasm --out-dir wasm #--no-modules --no-typescript
 
 setup-cross:
 	rustup target add $(WIN64)

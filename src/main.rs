@@ -40,7 +40,7 @@ impl State {
     pub fn new() -> Self {
         let map_size = ivec2(screen_width() as i32 - 120, (screen_height() - SOIL_LEVEL) as i32);
         Self {
-            map: Map::new(map_size, 100),
+            map: Map::new(map_size, 300),
             ui_state: IngameUi::new(),
             ui_layout: MainLayout { sidebar_width: 120.0, font_size: 12.0 }
         }

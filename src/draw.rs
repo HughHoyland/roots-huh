@@ -8,9 +8,8 @@ use macroquad::prelude::{clear_background, draw_line, draw_poly_lines, draw_rect
 use macroquad::shapes::draw_rectangle_lines;
 use crate::model::branch::{Branch, BranchId, GrowthDecision, MLBranch};
 use crate::model::map::Map;
-use crate::model::plant::Plant;
 use crate::model::Resource;
-use crate::model::soil::{MatrixSoil, Soil};
+use crate::model::soil::{Soil};
 use crate::numeric::distance_to_segment;
 use crate::ui::MainLayout;
 
@@ -67,8 +66,6 @@ pub fn draw_scene(
             }
         }
     }
-
-    let max_y = map.size.y;
 
     for x in (0..map.size.x).step_by(20) {
         for y in (0..map.size.y).step_by(10) {

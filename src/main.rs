@@ -14,7 +14,7 @@ use crate::model::branch::{Branch, MLBranch};
 use crate::model::map::Map;
 use crate::model::plant::Plant;
 use crate::model::soil::{MatrixSoil, Soil};
-use crate::ui::{IngameUi, MainLayout};
+use crate::ui::{draw_ui, IngameUi, MainLayout};
 
 
 fn window_conf() -> Conf {
@@ -42,7 +42,7 @@ impl State {
         Self {
             map: Map::new(map_size, 100),
             ui_state: IngameUi::new(),
-            ui_layout: MainLayout { sidebar_width: 120.0, font_size: 12 }
+            ui_layout: MainLayout { sidebar_width: 120.0, font_size: 12.0 }
         }
     }
 }
@@ -105,10 +105,15 @@ async fn main() {
         draw_scene(&state.map, &mut state.ui_state.hovered, &state.ui_state.selected, &state.ui_layout);
 
         if is_mouse_button_down(MouseButton::Left) && state.ui_state.hovered.is_some() {
-            state.ui_state.selected = state.ui_state.hovered.clone();
+            let selected = state.ui_state.hovered.clone().unwrap();
+            let plant = state.map.plants[selected.plant as usize].root.get_branch(&selected.branch_path);
+            state.ui_state.selected_mass = plant.map(|branch| branch.get_weight());
+            state.ui_state.selected_water_consumption = plant.map(|branch| branch.get_weight() * 0.21);
+            state.ui_state.selected_nitro_consumption = plant.map(|branch| branch.get_weight() * 0.034);
+            state.ui_state.selected = Some(selected);
         }
 
-        // draw_ui();
+        draw_ui(&state.map, &mut state.ui_state, &state.ui_layout);
 
         next_frame().await;
     }

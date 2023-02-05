@@ -1,4 +1,3 @@
-use glam::Vec2;
 use macroquad::color::{DARKGRAY, LIGHTGRAY, WHITE};
 use macroquad::input::{is_mouse_button_pressed, mouse_position, MouseButton};
 use macroquad::math::Rect;

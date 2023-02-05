@@ -6,7 +6,7 @@ mod ui;
 
 use glam::{ivec2};
 use macroquad::color::LIGHTGRAY;
-use macroquad::input::{is_key_down, is_key_pressed, is_mouse_button_down, is_mouse_button_pressed, KeyCode, MouseButton};
+use macroquad::input::{is_key_down, is_key_pressed, is_mouse_button_pressed, KeyCode, MouseButton};
 // use macroquad::texture::{load_texture, Texture2D};
 use macroquad::window::{clear_background, Conf, next_frame, screen_height, screen_width};
 use crate::draw::{draw_scene, SOIL_LEVEL};

@@ -1,7 +1,7 @@
 use std::mem;
 use glam::{Vec2, vec2};
 use macroquad::camera::{Camera2D, set_camera, set_default_camera};
-use macroquad::color::{BEIGE, BLUE, BROWN, Color, DARKBROWN, DARKGREEN, GRAY, GREEN, SKYBLUE};
+use macroquad::color::{BEIGE, BLUE, BROWN, Color, DARKBROWN, DARKGREEN, GRAY, GREEN, MAROON, PINK, SKYBLUE};
 use macroquad::input::mouse_position;
 use macroquad::math::Rect;
 use macroquad::prelude::{clear_background, draw_line, draw_poly_lines, draw_rectangle};
@@ -35,10 +35,11 @@ pub fn draw_scene(
 
     let mouse_pos: Vec2 = mouse_position().into();
     let mouse_pos = camera.screen_to_world(mouse_pos);
-    // let mouse_pos = vec2(mouse_pos.x, mouse_pos.y - SOIL_LEVEL);
+
+    let plant_colors = [BEIGE, PINK, MAROON];
 
     for (i, plant) in map.plants.iter().enumerate() {
-        draw_branch(&plant.root, mouse_pos, hover);
+        draw_branch(&plant.root, mouse_pos, hover, plant_colors[i]);
         let decision = plant.root.growth_decision(&map.soil, 1.0, &plant.strategy);
         draw_decision(plant.root.segments[0].start.x, decision);
 
@@ -87,8 +88,8 @@ pub fn draw_scene(
     set_default_camera();
 }
 
-fn draw_branch(branch: &MLBranch, mouse_pos: Vec2, hover: &mut Option<BranchId>) {
-    let mut color = BEIGE;
+fn draw_branch(branch: &MLBranch, mouse_pos: Vec2, hover: &mut Option<BranchId>, color: Color) {
+    let mut color = color;
 
     if hover.is_none() {
         let d_mouse = distance_to_segment(
@@ -104,7 +105,7 @@ fn draw_branch(branch: &MLBranch, mouse_pos: Vec2, hover: &mut Option<BranchId>)
 
     for (i, segment) in branch.segments.iter().enumerate() {
         if let Some(left) = &segment.branch {
-            draw_branch(left, mouse_pos, hover);
+            draw_branch(left, mouse_pos, hover, color);
         }
 
         let thickness = 7.0 * (branch.get_length() - i as f32) / branch.get_length();

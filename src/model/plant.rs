@@ -1,4 +1,3 @@
-use num_traits::FloatConst;
 use crate::model::branch::{MLBranch};
 use crate::model::BranchingStrategy;
 use crate::model::soil::MatrixSoil;
@@ -11,15 +10,10 @@ pub struct Plant {
 }
 
 impl Plant {
-    pub fn new(id: u32, x_coord: f32) -> Self {
+    pub fn new(id: u32, x_coord: f32, strategy: BranchingStrategy) -> Self {
         let plant = Self {
             root: MLBranch::new(id, x_coord, 10.0),
-            strategy: BranchingStrategy {
-                conic_ratio: 80.0,
-                children_weight_rate: 0.8,
-                child_weight_rate: 0.03,
-                default_side_angle: -f32::PI() / 4.0,
-            },
+            strategy,
             water_access: 0.0,
             nitro_access: 0.0
         };

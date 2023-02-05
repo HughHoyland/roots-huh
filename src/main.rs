@@ -139,8 +139,7 @@ impl State {
         draw_bar(x - rect_width * 0.5, branches * rect_height, DARKGREEN);
         draw_bar(x + rect_width * 0.6, thick * rect_height, DARKBROWN);
         draw_bar(x + rect_width * 1.7, new_branches * rect_height, DARKGREEN);
-        // draw_bar(x + rect_width * 1.6, rect_height, BLACK);
-        if long + branches + thick < 0.99 {
+        if long + branches + thick + new_branches < 0.99 {
             println!("Not enough weight!");
         }
     }
@@ -150,6 +149,7 @@ impl State {
         draw_rectangle(0.0, 0.0, screen_width(), SOIL_LEVEL - 1.0, SKYBLUE);
 
         let mouse_pos: Vec2 = mouse_position().into();
+        let mouse_pos = vec2(mouse_pos.x, mouse_pos.y - SOIL_LEVEL);
 
         let mut hover_drawn = false;
 
@@ -181,7 +181,6 @@ impl State {
     }
 
     fn draw_branch(&self, branch: &MLBranch, mouse_pos: Vec2, hover_drawn: &mut bool) {
-
         let mut color = BEIGE;
 
         if ! *hover_drawn {
@@ -202,7 +201,6 @@ impl State {
             }
 
             let thickness = 7.0 * (branch.get_length() - i as f32) / branch.get_length();
-            // TODO: Conic shape, thickness.
             draw_line(
                 segment.start.x,
                 segment.start.y + SOIL_LEVEL,
@@ -210,17 +208,7 @@ impl State {
                 segment.end.y + SOIL_LEVEL,
                 1.0 + thickness,
                 color);
-
         }
-
-        // draw_circle(
-        //     branch.segments[0].start.x,
-        //     branch.segments[0].start.y + SOIL_LEVEL,
-        //     10.0, GREEN);
-        // draw_circle(
-        //     branch.segments.last().unwrap().start.x,
-        //     branch.segments.last().unwrap().start.y + SOIL_LEVEL,
-        //     10.0, GRAY);
     }
 }
 

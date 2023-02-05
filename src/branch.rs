@@ -267,7 +267,7 @@ impl MLBranch {
 
         if child_decisions.is_empty() {
 
-            // FIXME: Use water as a limiting factor instead.
+            // FIXME: Use local water as a limiting factor instead. This needs a "water grid" in soil.
             let branch_resources: Vec<f32> = self.segments.iter()
                 .map(|s|
                     s.branch.as_ref().map(|br| br.best_nitro + br.best_water).unwrap_or_default())

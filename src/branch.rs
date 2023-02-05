@@ -1,4 +1,5 @@
 use std::f32::consts::PI;
+use std::fmt::{Display, Formatter};
 use glam::{Vec2, vec2};
 use num_traits::FloatConst;
 use crate::{MatrixSoil, Resource, Soil};
@@ -91,6 +92,15 @@ pub struct MLBranch {
     pub best_water: f32,
 }
 
+impl Display for MLBranch {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        for i in self.id.iter() {
+            write!(f, "{}-", *i)?;
+        }
+        write!(f, "*")
+    }
+}
+
 impl Branch for MLBranch {
     fn get_length(&self) -> f32 { self.segments.len() as f32 }
 
@@ -159,11 +169,11 @@ impl MLBranch {
         }
     }
 
-    // fn branch_count(&self) -> usize {
-    //     self.segments.iter()
-    //         .filter_map(|s| s.branch.as_ref().map(|_| true))
-    //         .count()
-    // }
+    pub fn branch_count(&self) -> usize {
+        self.segments.iter()
+            .filter_map(|s| s.branch.as_ref().map(|_| true))
+            .count()
+    }
 
     fn get_child_angle(&self, index: usize) -> f32 {
         let my_direction = self.segments[index].vec();
@@ -210,9 +220,6 @@ impl MLBranch {
         let next_point = self.segments[new_branch_segment].end
             + vec2(SEGMENT_LENGTH * new_branch_angle.cos(), SEGMENT_LENGTH * new_branch_angle.sin());
 
-        // println!("New branch. Branching ratio: my: {}, start: {}. Branch at {}",
-        //          branch_ratio, strategy.branching_ratio, next_point);
-
         Some( GrowthDecision::NewBranch( GrowNewBranch {
             direction: next_point,
             parent_segment_index: new_branch_segment
@@ -252,7 +259,7 @@ impl MLBranch {
                 || (last_branch_index.unwrap() as f32 / self.segments.len() as f32) < 0.3
             {
                 if let Some(decision) = self.grow_new_branch() {
-                    child_decisions = vec![ (decision, 1.0) ];
+                    child_decisions = vec![ (decision, children_share) ];
                 }
             }
         }
@@ -261,21 +268,22 @@ impl MLBranch {
         if child_decisions.is_empty() {
 
             // FIXME: Use water as a limiting factor instead.
-
             let branch_resources: Vec<f32> = self.segments.iter()
                 .map(|s|
                     s.branch.as_ref().map(|br| br.best_nitro + br.best_water).unwrap_or_default())
                 .collect();
             let total_branch_resources: f32 = branch_resources.iter().sum();
 
-            child_decisions = self.segments.iter()
-                .enumerate()
-                .filter(|(_i, seg)| seg.branch.is_some())
-                .map(|(i, _seg)| (
-                    GrowthDecision::Child( GrowChild(i) ),
-                    children_share * branch_resources[i] / total_branch_resources
-                ))
-                .collect();
+            if total_branch_resources > f32::EPSILON {
+                child_decisions = self.segments.iter()
+                    .enumerate()
+                    .filter(|(_i, seg)| seg.branch.is_some())
+                    .map(|(i, _seg)| (
+                        GrowthDecision::Child( GrowChild(i) ),
+                        children_share * branch_resources[i] / total_branch_resources
+                    ))
+                    .collect();
+            }
         }
 
 

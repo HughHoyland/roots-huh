@@ -5,14 +5,14 @@ mod soil;
 mod organ;
 
 use std::f32::consts::PI;
-use glam::{vec2};
+use glam::{vec2, Vec2};
 use macroquad::color::{BEIGE, BLACK, BLUE, BROWN, Color, DARKBROWN, DARKGREEN, GRAY, GREEN, SKYBLUE};
-use macroquad::input::{is_key_pressed, KeyCode};
+use macroquad::input::{is_key_pressed, KeyCode, mouse_position};
 use macroquad::prelude::is_key_down;
-use macroquad::shapes::{draw_line, draw_poly_lines, draw_rectangle};
+use macroquad::shapes::{draw_circle, draw_line, draw_poly_lines, draw_rectangle};
 use macroquad::window::{clear_background, Conf, next_frame, screen_height, screen_width};
 use crate::branch::{Branch, BranchingStrategy, GrowthDecision, MLBranch};
-use crate::numeric::rand;
+use crate::numeric::{distance_to_segment, rand};
 use crate::soil::{MatrixSoil, Soil};
 
 
@@ -109,11 +109,13 @@ impl State {
     fn draw_decision(x: f32, decisions: Vec<(GrowthDecision, f32)>) {
         let mut long = 0.0;
         let mut branches = 0.0;
+        let mut new_branches = 0.0;
         let mut thick = 0.0;
         for (d, weight) in decisions.iter() {
             match d {
                 GrowthDecision::Longer(_) => long += weight,
-                GrowthDecision::Child(_) | GrowthDecision::NewBranch(_) => branches += weight,
+                GrowthDecision::Child(_) => branches += weight,
+                GrowthDecision::NewBranch(_) => new_branches += weight,
                 GrowthDecision::Myself => thick += weight,
             }
         }
@@ -136,6 +138,7 @@ impl State {
         draw_bar(x - rect_width * 1.6, long * rect_height, BROWN);
         draw_bar(x - rect_width * 0.5, branches * rect_height, DARKGREEN);
         draw_bar(x + rect_width * 0.6, thick * rect_height, DARKBROWN);
+        draw_bar(x + rect_width * 1.7, new_branches * rect_height, DARKGREEN);
         // draw_bar(x + rect_width * 1.6, rect_height, BLACK);
         if long + branches + thick < 0.99 {
             println!("Not enough weight!");
@@ -146,8 +149,12 @@ impl State {
         clear_background(DARKBROWN);
         draw_rectangle(0.0, 0.0, screen_width(), SOIL_LEVEL - 1.0, SKYBLUE);
 
+        let mouse_pos: Vec2 = mouse_position().into();
+
+        let mut hover_drawn = false;
+
         for plant in self.plants.iter() {
-            self.draw_branch(&plant.root);
+            self.draw_branch(&plant.root, mouse_pos, &mut hover_drawn);
             let decision = plant.root.growth_decision(&self.soil, 1.0, &plant.strategy);
             Self::draw_decision(plant.root.segments[0].start.x, decision);
         }
@@ -173,9 +180,27 @@ impl State {
         }
     }
 
-    fn draw_branch(&self, branch: &MLBranch) {
+    fn draw_branch(&self, branch: &MLBranch, mouse_pos: Vec2, hover_drawn: &mut bool) {
+
+        let mut color = BEIGE;
+
+        if ! *hover_drawn {
+            let d_mouse = distance_to_segment(
+                mouse_pos,
+                branch.segments[0].start,
+                branch.segments.last().unwrap().end);
+
+            if d_mouse < 5.0 {
+                color = GREEN;
+                *hover_drawn = true;
+            }
+        }
 
         for (i, segment) in branch.segments.iter().enumerate() {
+            if let Some(left) = &segment.branch {
+                self.draw_branch(left, mouse_pos, hover_drawn);
+            }
+
             let thickness = 7.0 * (branch.get_length() - i as f32) / branch.get_length();
             // TODO: Conic shape, thickness.
             draw_line(
@@ -184,14 +209,37 @@ impl State {
                 segment.end.x,
                 segment.end.y + SOIL_LEVEL,
                 1.0 + thickness,
-                BEIGE);
+                color);
 
-            if let Some(left) = &segment.branch {
-                self.draw_branch(left);
-            }
+        }
+
+        // draw_circle(
+        //     branch.segments[0].start.x,
+        //     branch.segments[0].start.y + SOIL_LEVEL,
+        //     10.0, GREEN);
+        // draw_circle(
+        //     branch.segments.last().unwrap().start.x,
+        //     branch.segments.last().unwrap().start.y + SOIL_LEVEL,
+        //     10.0, GRAY);
+    }
+}
+
+fn print_branch(branch: &MLBranch, offset: usize) {
+    println!(
+        "{: <1$}Branch {2}, length {3}, weight {4}, has {5} children:",
+        "", offset, branch, branch.get_length(), branch.get_weight(), branch.branch_count());
+    for segment in branch.segments.iter() {
+        if let Some(branch) = segment.branch.as_ref() {
+            print_branch(branch, offset + 2);
         }
     }
 }
+
+fn print_plant(p0: &Plant) {
+    let branch = &p0.root;
+    print_branch(branch, 0);
+}
+
 
 #[macroquad::main(window_conf)]
 async fn main() {
@@ -207,6 +255,10 @@ async fn main() {
             for plant in state.plants.iter_mut() {
                 plant.grow(&mut state.soil);
             }
+        }
+
+        if is_key_pressed(KeyCode::P) {
+            print_plant(&state.plants[0]);
         }
 
         state.draw();

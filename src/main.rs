@@ -6,7 +6,7 @@ mod ui;
 
 use glam::{ivec2};
 use macroquad::color::LIGHTGRAY;
-use macroquad::input::{is_key_down, is_key_pressed, is_mouse_button_down, KeyCode, MouseButton};
+use macroquad::input::{is_key_down, is_key_pressed, is_mouse_button_down, is_mouse_button_pressed, KeyCode, MouseButton};
 // use macroquad::texture::{load_texture, Texture2D};
 use macroquad::window::{clear_background, Conf, next_frame, screen_height, screen_width};
 use crate::draw::{draw_scene, SOIL_LEVEL};
@@ -91,7 +91,7 @@ async fn main() {
             break;
         }
 
-        if is_key_down(KeyCode::G) {
+        if state.ui_state.speed == 1 || is_key_down(KeyCode::G) {
             for plant in state.map.plants.iter_mut() {
                 plant.grow(&mut state.map.soil);
             }
@@ -104,7 +104,7 @@ async fn main() {
         state.ui_state.hovered = None;
         draw_scene(&state.map, &mut state.ui_state.hovered, &state.ui_state.selected, &state.ui_layout);
 
-        if is_mouse_button_down(MouseButton::Left) && state.ui_state.hovered.is_some() {
+        if is_mouse_button_pressed(MouseButton::Left) && state.ui_state.hovered.is_some() {
             let selected = state.ui_state.hovered.clone().unwrap();
             let plant = state.map.plants[selected.plant as usize].root.get_branch(&selected.branch_path);
             state.ui_state.selected_mass = plant.map(|branch| branch.get_weight());

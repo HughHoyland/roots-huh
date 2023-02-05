@@ -9,9 +9,9 @@ pub struct Plant {
 }
 
 impl Plant {
-    pub fn new(x_coord: f32) -> Self {
+    pub fn new(id: u32, x_coord: f32) -> Self {
         let plant = Self {
-            root: MLBranch::new(x_coord, 10.0),
+            root: MLBranch::new(id, x_coord, 10.0),
             strategy: BranchingStrategy {
                 conic_ratio: 80.0,
                 children_weight_rate: 0.8,

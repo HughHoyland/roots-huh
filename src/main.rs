@@ -3,17 +3,13 @@ mod stats;
 mod model;
 mod draw;
 
-use glam::{vec2, Vec2};
-use macroquad::color::{BEIGE, BLUE, BROWN, Color, DARKBROWN, DARKGREEN, GRAY, GREEN, SKYBLUE};
-use macroquad::input::{is_key_pressed, KeyCode, mouse_position};
-use macroquad::prelude::is_key_down;
-use macroquad::shapes::{draw_line, draw_poly_lines, draw_rectangle};
-use macroquad::window::{clear_background, Conf, next_frame, screen_height, screen_width};
+use glam::{vec2};
+use macroquad::input::{is_key_down, is_key_pressed, KeyCode};
+use macroquad::window::{Conf, next_frame, screen_height, screen_width};
 use crate::draw::{draw_scene, SOIL_LEVEL};
-use crate::numeric::{distance_to_segment, rand};
-use crate::model::branch::{Branch, GrowthDecision, MLBranch};
+use crate::numeric::{rand};
+use crate::model::branch::{Branch, BranchId, MLBranch};
 use crate::model::plant::Plant;
-use crate::model::Resource;
 use crate::model::soil::{MatrixSoil, Soil};
 
 
@@ -52,7 +48,7 @@ impl State {
 
         Self {
             soil,
-            plants: vec![Plant::new(120.0)],
+            plants: vec![Plant::new(0, 120.0)],
             selected_plant: 0,
             selected_branch: vec![]
         }
@@ -63,7 +59,7 @@ impl State {
 fn print_branch(branch: &MLBranch, offset: usize) {
     println!(
         "{: <1$}Branch {2}, length {3}, weight {4}, has {5} children:",
-        "", offset, branch, branch.get_length(), branch.get_weight(), branch.branch_count());
+        "", offset, branch.id, branch.get_length(), branch.get_weight(), branch.branch_count());
     for segment in branch.segments.iter() {
         if let Some(branch) = segment.branch.as_ref() {
             print_branch(branch, offset + 2);
@@ -74,6 +70,11 @@ fn print_branch(branch: &MLBranch, offset: usize) {
 fn print_plant(p0: &Plant) {
     let branch = &p0.root;
     print_branch(branch, 0);
+}
+
+struct DrawOutput {
+    pub selected_plant: usize,
+    pub selected_branch: BranchId,
 }
 
 

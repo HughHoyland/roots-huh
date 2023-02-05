@@ -19,9 +19,6 @@ pub trait Branch {
     fn get_suck_potential(&self, what: Resource) -> f32;
 }
 
-// pub enum Angle {
-//     Left, Right, Middle,
-// }
 
 /// Distance between points in multiline.
 const SEGMENT_LENGTH: f32 = 1.0;
@@ -39,7 +36,7 @@ impl Segment {
         Self { start, end, branch: None }
     }
 
-    /// ranging -pi..pi
+    /// * return ranging -pi..pi
     pub fn angle(&self) -> f32 {
         let delta = self.end - self.start;
         delta.y.atan2(delta.x)
@@ -50,10 +47,44 @@ impl Segment {
     }
 }
 
+pub struct BranchId {
+    pub plant: u32,
+    pub branch_path: Vec<usize>
+}
+
+impl BranchId {
+    pub fn new(plant: u32) -> Self {
+        Self {
+            plant,
+            branch_path: vec![]
+        }
+    }
+
+    pub fn append(&self, segment: usize) -> Self {
+        let mut path = self.branch_path.clone();
+        path.push(segment);
+        Self {
+            plant: self.plant,
+            branch_path: path
+        }
+    }
+}
+
+impl Display for BranchId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[{}]:", self.plant)?;
+        for i in self.branch_path.iter() {
+            write!(f, "-{}", *i)?;
+        }
+        Ok(())
+    }
+
+}
+
 /// ML stands for "multiline", a sequence of line segments.
 pub struct MLBranch {
     // A sequence of branch indexes, from the root of the root.
-    pub id: Vec<usize>,
+    pub id: BranchId,
 
     pub segments: Vec<Segment>,
 
@@ -69,15 +100,6 @@ pub struct MLBranch {
     /// Maintain this invariant!
     pub best_nitro: f32,
     pub best_water: f32,
-}
-
-impl Display for MLBranch {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        for i in self.id.iter() {
-            write!(f, "{}-", *i)?;
-        }
-        write!(f, "*")
-    }
 }
 
 impl Branch for MLBranch {
@@ -120,9 +142,9 @@ pub enum GrowthDecision {
 
 impl MLBranch {
 
-    pub fn new(x: f32, weight: f32) -> Self {
+    pub fn new(plant: u32, x: f32, weight: f32) -> Self {
         Self {
-            id: vec![],
+            id: BranchId::new(plant),
             segments: vec![
                 Segment::new(vec2(x, 0.0), vec2(x, SEGMENT_LENGTH))
             ],
@@ -134,11 +156,9 @@ impl MLBranch {
         }
     }
 
-    pub fn new_branch(start: Vec2, end: Vec2, parent_segment_index: usize, parent_id: Vec<usize>, weight: f32) -> Self {
-        let mut id = parent_id;
-        id.push(parent_segment_index);
+    pub fn new_branch(start: Vec2, end: Vec2, parent_segment_index: usize, parent_id: &BranchId, weight: f32) -> Self {
         Self {
-            id,
+            id: parent_id.append(parent_segment_index),
             segments: vec![ Segment::new(start, end) ],
             parent_segment_index,
             weight,
@@ -314,7 +334,7 @@ impl MLBranch {
                             cur_segment.end,
                             direction,
                             parent_segment_index,
-                            self.id.clone(),
+                            &self.id,
                             new_material * weight)));
                 }
 

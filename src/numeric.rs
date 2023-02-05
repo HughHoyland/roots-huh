@@ -16,8 +16,8 @@ impl Cap for f32 {
     }
 }
 
-pub fn rand(till: usize) -> usize {
-    rand::rand() as usize % till
+pub fn rand(till: i32) -> i32 {
+    rand::rand() as i32 % till
 }
 
 fn float_min(a: f32, b: f32) -> f32 {

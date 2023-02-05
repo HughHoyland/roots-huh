@@ -4,7 +4,7 @@ mod model;
 mod draw;
 mod ui;
 
-use glam::vec2;
+use glam::{ivec2, vec2};
 use macroquad::color::LIGHTGRAY;
 use macroquad::input::{is_key_down, is_key_pressed, is_mouse_button_down, KeyCode, MouseButton};
 // use macroquad::texture::{load_texture, Texture2D};
@@ -12,8 +12,10 @@ use macroquad::window::{clear_background, Conf, next_frame, screen_height, scree
 use crate::draw::{draw_scene, SOIL_LEVEL};
 use crate::numeric::{rand};
 use crate::model::branch::{Branch, BranchId, MLBranch};
+use crate::model::map::Map;
 use crate::model::plant::Plant;
 use crate::model::soil::{MatrixSoil, Soil};
+use crate::ui::MainLayout;
 
 
 fn window_conf() -> Conf {
@@ -27,33 +29,25 @@ fn window_conf() -> Conf {
 }
 
 struct State {
-    pub soil: MatrixSoil,
-    pub plants: Vec<Plant>,
+    // pub soil: MatrixSoil,
+    // pub plants: Vec<Plant>,
+    pub map: Map,
     // Player's plant is always #0, this is the selected one (you can select others too)
     pub selected: Option<BranchId>,
     /// "Path" to a selected branch - indexes of branches.
     pub hovered: Option<BranchId>,
+
+    pub ui_layout: MainLayout,
 }
 
 impl State {
     pub fn new() -> Self {
-        let width = screen_width() as usize;
-        let height = (screen_height() - SOIL_LEVEL) as usize;
-        let mut soil = MatrixSoil::new(width, height);
-        for _ in 0..100 {
-            let r = rand(70) as f32 + 10.0;
-            let x = rand(width - 2 * r as usize) + r as usize;
-            let y = rand(height - 2 * r as usize) + r as usize;
-            let pos = vec2(x as f32, y as f32);
-            let weight = rand(10) as f32 + 2.0;
-            soil.add_nitro(pos, r, weight);
-        }
-
+        let map_size = ivec2(screen_width() as i32, (screen_height() - SOIL_LEVEL) as i32);
         Self {
-            soil,
-            plants: vec![Plant::new(0, 120.0)],
+            map: Map::new(map_size, 100),
             selected: None,
-            hovered: None
+            hovered: None,
+            ui_layout: MainLayout { sidebar_width: 120.0, font_size: 12 }
         }
     }
 }
@@ -103,17 +97,17 @@ async fn main() {
         }
 
         if is_key_down(KeyCode::G) {
-            for plant in state.plants.iter_mut() {
-                plant.grow(&mut state.soil);
+            for plant in state.map.plants.iter_mut() {
+                plant.grow(&mut state.map.soil);
             }
         }
 
         if is_key_pressed(KeyCode::P) {
-            print_plant(&state.plants[0]);
+            print_plant(&state.map.plants[0]);
         }
 
         state.hovered = None;
-        draw_scene(&state.plants, &state.soil, &mut state.hovered, &state.selected);
+        draw_scene(&state.map, &mut state.hovered, &state.selected, &state.ui_layout);
 
         if is_mouse_button_down(MouseButton::Left) && state.hovered.is_some() {
             state.selected = state.hovered.clone();

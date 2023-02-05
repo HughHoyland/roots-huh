@@ -5,15 +5,22 @@ use macroquad::input::mouse_position;
 use macroquad::prelude::{clear_background, draw_line, draw_poly_lines, draw_rectangle, screen_height, screen_width};
 use macroquad::shapes::draw_rectangle_lines;
 use crate::model::branch::{Branch, BranchId, GrowthDecision, MLBranch};
+use crate::model::map::Map;
 use crate::model::plant::Plant;
 use crate::model::Resource;
 use crate::model::soil::{MatrixSoil, Soil};
 use crate::numeric::distance_to_segment;
+use crate::ui::MainLayout;
 
 pub const SOIL_LEVEL: f32 = 50.0;
 
 
-pub fn draw_scene(plants: &Vec<Plant>, soil: &MatrixSoil, hover: &mut Option<BranchId>, selected: &Option<BranchId>) {
+pub fn draw_scene(
+    map: &Map,
+    hover: &mut Option<BranchId>,
+    selected: &Option<BranchId>,
+    layout: &MainLayout
+) {
 
     clear_background(DARKBROWN);
     draw_rectangle(0.0, 0.0, screen_width(), SOIL_LEVEL - 1.0, SKYBLUE);
@@ -21,9 +28,9 @@ pub fn draw_scene(plants: &Vec<Plant>, soil: &MatrixSoil, hover: &mut Option<Bra
     let mouse_pos: Vec2 = mouse_position().into();
     let mouse_pos = vec2(mouse_pos.x, mouse_pos.y - SOIL_LEVEL);
 
-    for (i, plant) in plants.iter().enumerate() {
+    for (i, plant) in map.plants.iter().enumerate() {
         draw_branch(&plant.root, mouse_pos, hover);
-        let decision = plant.root.growth_decision(&soil, 1.0, &plant.strategy);
+        let decision = plant.root.growth_decision(&map.soil, 1.0, &plant.strategy);
         draw_decision(plant.root.segments[0].start.x, decision);
 
         if let Some(selected) = selected {
@@ -56,8 +63,8 @@ pub fn draw_scene(plants: &Vec<Plant>, soil: &MatrixSoil, hover: &mut Option<Bra
     for x in (0..screen_width() as i32).step_by(20) {
         for y in (0..max_y).step_by(10) {
             let pos = vec2(x as f32, y as f32);
-            let water = soil.get_resource(pos, Resource::Water);
-            let nitro = soil.get_resource(pos, Resource::Nitro);
+            let water = map.soil.get_resource(pos, Resource::Water);
+            let nitro = map.soil.get_resource(pos, Resource::Nitro);
 
             if water > 0.0 {
                 let size = resource_draw_size(water);

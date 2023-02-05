@@ -2,6 +2,7 @@ pub mod organ;
 pub mod branch;
 pub mod soil;
 pub mod plant;
+pub mod map;
 
 #[derive(Copy, Clone)]
 pub enum Resource {

@@ -1,5 +1,5 @@
 use num_traits::FloatConst;
-use crate::model::branch::{BranchId, MLBranch};
+use crate::model::branch::{MLBranch};
 use crate::model::BranchingStrategy;
 use crate::model::soil::MatrixSoil;
 

@@ -1,8 +1,10 @@
 use std::mem;
 use glam::{Vec2, vec2};
+use macroquad::camera::{Camera2D, set_camera, set_default_camera};
 use macroquad::color::{BEIGE, BLUE, BROWN, Color, DARKBROWN, DARKGREEN, GRAY, GREEN, SKYBLUE};
 use macroquad::input::mouse_position;
-use macroquad::prelude::{clear_background, draw_line, draw_poly_lines, draw_rectangle, screen_height, screen_width};
+use macroquad::math::Rect;
+use macroquad::prelude::{clear_background, draw_line, draw_poly_lines, draw_rectangle};
 use macroquad::shapes::draw_rectangle_lines;
 use crate::model::branch::{Branch, BranchId, GrowthDecision, MLBranch};
 use crate::model::map::Map;
@@ -21,12 +23,20 @@ pub fn draw_scene(
     selected: &Option<BranchId>,
     layout: &MainLayout
 ) {
+    clear_background(SKYBLUE);
 
-    clear_background(DARKBROWN);
-    draw_rectangle(0.0, 0.0, screen_width(), SOIL_LEVEL - 1.0, SKYBLUE);
+    let game_view = Rect::new(
+        -layout.sidebar_width, -SOIL_LEVEL,
+        map.size.x as f32,
+        map.size.y as f32);
+    let camera = Camera2D::from_display_rect(game_view);
+    set_camera(&camera);
+
+    draw_rectangle(0.0, 0.0, map.size.x as f32, map.size.y as f32, DARKBROWN);
 
     let mouse_pos: Vec2 = mouse_position().into();
-    let mouse_pos = vec2(mouse_pos.x, mouse_pos.y - SOIL_LEVEL);
+    let mouse_pos = camera.screen_to_world(mouse_pos);
+    // let mouse_pos = vec2(mouse_pos.x, mouse_pos.y - SOIL_LEVEL);
 
     for (i, plant) in map.plants.iter().enumerate() {
         draw_branch(&plant.root, mouse_pos, hover);
@@ -49,7 +59,7 @@ pub fn draw_scene(
                     let selection_frame_offset = 4.0;
                     draw_rectangle_lines(
                         p1.x - selection_frame_offset,
-                        p1.y - selection_frame_offset + SOIL_LEVEL,
+                        p1.y - selection_frame_offset,
                         p2.x - p1.x + 2.0 * selection_frame_offset,
                         p2.y - p1.y + 2.0 * selection_frame_offset,
                         2.0, GREEN);
@@ -58,25 +68,26 @@ pub fn draw_scene(
         }
     }
 
-    let max_y = (screen_height() - SOIL_LEVEL) as i32;
+    let max_y = map.size.y;
 
-    for x in (0..screen_width() as i32).step_by(20) {
-        for y in (0..max_y).step_by(10) {
+    for x in (0..map.size.x).step_by(20) {
+        for y in (0..map.size.y).step_by(10) {
             let pos = vec2(x as f32, y as f32);
             let water = map.soil.get_resource(pos, Resource::Water);
             let nitro = map.soil.get_resource(pos, Resource::Nitro);
 
             if water > 0.0 {
                 let size = resource_draw_size(water);
-                draw_poly_lines(pos.x, pos.y + SOIL_LEVEL, 3, size, 0.0, 1.0, BLUE);
+                draw_poly_lines(pos.x, pos.y, 3, size, 0.0, 1.0, BLUE);
             }
             if nitro > 0.0 {
                 let size = resource_draw_size(nitro);
-                draw_poly_lines(pos.x + 5.0, pos.y + 2.0 + SOIL_LEVEL, 4, size, 0.0, 1.0, GRAY);
+                draw_poly_lines(pos.x + 5.0, pos.y + 2.0, 4, size, 0.0, 1.0, GRAY);
             }
         }
-
     }
+
+    set_default_camera();
 }
 
 fn draw_branch(branch: &MLBranch, mouse_pos: Vec2, hover: &mut Option<BranchId>) {
@@ -102,9 +113,9 @@ fn draw_branch(branch: &MLBranch, mouse_pos: Vec2, hover: &mut Option<BranchId>)
         let thickness = 7.0 * (branch.get_length() - i as f32) / branch.get_length();
         draw_line(
             segment.start.x,
-            segment.start.y + SOIL_LEVEL,
+            segment.start.y,
             segment.end.x,
-            segment.end.y + SOIL_LEVEL,
+            segment.end.y,
             1.0 + thickness,
             color);
     }
@@ -143,7 +154,7 @@ fn draw_decision(x: f32, decisions: Vec<(GrowthDecision, f32)>) {
 
         draw_rectangle(
             x,
-            SOIL_LEVEL - offset - height,
+            - offset - height,
             rect_width,
             height + 1.0,
             color);

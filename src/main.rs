@@ -4,18 +4,17 @@ mod model;
 mod draw;
 mod ui;
 
-use glam::{ivec2, vec2};
+use glam::{ivec2};
 use macroquad::color::LIGHTGRAY;
 use macroquad::input::{is_key_down, is_key_pressed, is_mouse_button_down, KeyCode, MouseButton};
 // use macroquad::texture::{load_texture, Texture2D};
 use macroquad::window::{clear_background, Conf, next_frame, screen_height, screen_width};
 use crate::draw::{draw_scene, SOIL_LEVEL};
-use crate::numeric::{rand};
-use crate::model::branch::{Branch, BranchId, MLBranch};
+use crate::model::branch::{Branch, MLBranch};
 use crate::model::map::Map;
 use crate::model::plant::Plant;
 use crate::model::soil::{MatrixSoil, Soil};
-use crate::ui::MainLayout;
+use crate::ui::{IngameUi, MainLayout};
 
 
 fn window_conf() -> Conf {
@@ -31,22 +30,18 @@ fn window_conf() -> Conf {
 struct State {
     // pub soil: MatrixSoil,
     // pub plants: Vec<Plant>,
+    pub ui_state: IngameUi,
     pub map: Map,
-    // Player's plant is always #0, this is the selected one (you can select others too)
-    pub selected: Option<BranchId>,
-    /// "Path" to a selected branch - indexes of branches.
-    pub hovered: Option<BranchId>,
 
     pub ui_layout: MainLayout,
 }
 
 impl State {
     pub fn new() -> Self {
-        let map_size = ivec2(screen_width() as i32, (screen_height() - SOIL_LEVEL) as i32);
+        let map_size = ivec2(screen_width() as i32 - 120, (screen_height() - SOIL_LEVEL) as i32);
         Self {
             map: Map::new(map_size, 100),
-            selected: None,
-            hovered: None,
+            ui_state: IngameUi::new(),
             ui_layout: MainLayout { sidebar_width: 120.0, font_size: 12 }
         }
     }
@@ -106,11 +101,11 @@ async fn main() {
             print_plant(&state.map.plants[0]);
         }
 
-        state.hovered = None;
-        draw_scene(&state.map, &mut state.hovered, &state.selected, &state.ui_layout);
+        state.ui_state.hovered = None;
+        draw_scene(&state.map, &mut state.ui_state.hovered, &state.ui_state.selected, &state.ui_layout);
 
-        if is_mouse_button_down(MouseButton::Left) && state.hovered.is_some() {
-            state.selected = state.hovered.clone();
+        if is_mouse_button_down(MouseButton::Left) && state.ui_state.hovered.is_some() {
+            state.ui_state.selected = state.ui_state.hovered.clone();
         }
 
         // draw_ui();

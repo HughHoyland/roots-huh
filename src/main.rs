@@ -1,57 +1,19 @@
-mod branch;
 mod numeric;
 mod stats;
-mod soil;
-mod organ;
+mod model;
 
-use std::f32::consts::PI;
 use glam::{vec2, Vec2};
-use macroquad::color::{BEIGE, BLACK, BLUE, BROWN, Color, DARKBROWN, DARKGREEN, GRAY, GREEN, SKYBLUE};
+use macroquad::color::{BEIGE, BLUE, BROWN, Color, DARKBROWN, DARKGREEN, GRAY, GREEN, SKYBLUE};
 use macroquad::input::{is_key_pressed, KeyCode, mouse_position};
 use macroquad::prelude::is_key_down;
-use macroquad::shapes::{draw_circle, draw_line, draw_poly_lines, draw_rectangle};
+use macroquad::shapes::{draw_line, draw_poly_lines, draw_rectangle};
 use macroquad::window::{clear_background, Conf, next_frame, screen_height, screen_width};
-use crate::branch::{Branch, BranchingStrategy, GrowthDecision, MLBranch};
 use crate::numeric::{distance_to_segment, rand};
-use crate::soil::{MatrixSoil, Soil};
+use crate::model::branch::{Branch, GrowthDecision, MLBranch};
+use crate::model::plant::Plant;
+use crate::model::Resource;
+use crate::model::soil::{MatrixSoil, Soil};
 
-
-#[derive(Copy, Clone)]
-pub enum Resource {
-    Water,
-    Nitro
-}
-
-
-struct Plant {
-    root: MLBranch,
-    strategy: BranchingStrategy,
-}
-
-impl Plant {
-    pub fn new(x_coord: f32) -> Self {
-        let plant = Self {
-            root: MLBranch::new(x_coord, 10.0),
-            strategy: BranchingStrategy {
-                conic_ratio: 80.0,
-                children_weight_rate: 0.8,
-                child_weight_rate: 0.03,
-                default_side_angle: -PI / 4.0,
-            }
-        };
-        plant
-    }
-
-    pub fn grow(&mut self, soil: &mut MatrixSoil) {
-        let (nitro, water) = self.root.suck(soil);
-
-        // Extension: use sunlight too.
-        // hack hack hack  + 0.2
-        let new_matter = f32::min(nitro + 0.2, water + 0.2) * 10.0;
-
-        self.root.grow(new_matter, soil, &self.strategy);
-    }
-}
 
 const SOIL_LEVEL: f32 = 50.0;
 

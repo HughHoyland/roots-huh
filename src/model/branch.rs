@@ -2,31 +2,10 @@ use std::f32::consts::PI;
 use std::fmt::{Display, Formatter};
 use glam::{Vec2, vec2};
 use num_traits::FloatConst;
-use crate::{MatrixSoil, Resource, Soil};
 
-// This will define the shape of the root.
-// Extension idea: Maybe make these dependent on depth or humidity?
-pub struct BranchingStrategy {
+use crate::{MatrixSoil, Soil};
+use crate::model::{BranchingStrategy, Resource};
 
-    /// Length:diameter ratio.
-    /// For simplicity sake, let's decide that first segment is always 2 times
-    /// as thick as last one.
-    pub conic_ratio: f32,
-
-    /// all children:my weight ratio.
-    pub children_weight_rate: f32,
-
-    /// one child:my weight ratio.
-    pub child_weight_rate: f32,
-
-    /// Angle at which new branch tends to grow, unless it grows downwards.
-    /// Extension idea: maybe we want entire distribution.
-    pub default_side_angle: f32,
-
-    // TODO: Dependency on soil - water/nitro/pH.
-
-    // Extension idea: Strength breaking a hard soil(rock)?
-}
 
 /// All recursive.
 pub trait Branch {

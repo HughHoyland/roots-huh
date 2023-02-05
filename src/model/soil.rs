@@ -1,6 +1,7 @@
 use std::f32::consts::PI;
 use glam::Vec2;
-use crate::Resource;
+
+use crate::model::Resource;
 
 pub trait Soil {
     /// Resource, g/cm3
